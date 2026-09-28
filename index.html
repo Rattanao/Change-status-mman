@@ -55,8 +55,10 @@ button { font: 500 15px "Kanit", sans-serif; border: 0; border-radius: 5px; padd
   background: var(--navy); color: var(--on-navy); white-space: nowrap; }
 button:hover:not(:disabled) { background: var(--navy-hover); }
 button:disabled { opacity: .45; cursor: not-allowed; }
-button.sec { background: var(--ok); margin-top: 16px; }
-h2 { font: 500 18px "Kanit", sans-serif; margin: 0 0 14px; }
+button.sec { background: #2f7a4f; }
+button.sec:hover:not(:disabled) { background: #256340; }
+.res-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+h2 { font: 500 18px "Kanit", sans-serif; margin: 0; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
 .stat { background: var(--bg); border-radius: 8px; padding: 10px 12px; border-left: 4px solid var(--navy); }
 .stat .n { font-size: 22px; font-weight: 600; }
@@ -102,12 +104,14 @@ details summary { cursor: pointer; color: var(--muted); }
   </div>
 
   <div class="card hidden" id="result">
-    <h2>ผลการเปลี่ยน Status</h2>
+    <div class="res-head">
+      <h2>ผลการเปลี่ยน Status</h2>
+      <button id="dl" class="sec hidden">ดาวน์โหลด MMAN_EDI.txt</button>
+    </div>
     <div id="msgs"></div>
     <div class="stats" id="stats"></div>
     <div class="tbl-wrap"><table id="tbl"></table></div>
     <details style="margin-top:12px"><summary>ตัวอย่างบรรทัดที่แก้ (ไฮไลต์ = ตำแหน่งที่เปลี่ยน)</summary><div class="pre" id="preview"></div></details>
-    <button id="dl" class="sec hidden">ดาวน์โหลด MMAN_EDI.txt</button>
   </div>
 
   <div class="card">
