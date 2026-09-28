@@ -4,6 +4,16 @@
 
 Can be used as a standalone Python program or as a **Claude Code skill** (`change-status`)
 
+## Web version
+
+**https://rattanao.github.io/check-status-mman/**
+
+1. Drop in the MMAN `.txt` file
+2. Drop in the Status list (`.xls` / `.xlsx` / `.csv`)
+3. Press **Change status** → check the summary → press **ดาวน์โหลด MMAN_EDI.txt**
+
+Everything runs in the browser; files are never uploaded to any server. The page is `index.html` (GitHub Pages: Settings → Pages → Branch `main` / root)
+
 ## What it changes (on each B/L line)
 
 ```
