@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+Input/
+MMAN_EDI.txt
+*.txt
+!requirements.txt
