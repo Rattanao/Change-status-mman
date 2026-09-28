@@ -1,4 +1,4 @@
-# check-status-mman
+# Change-status-mman
 
 **Change status** tool: edits the MMAN EDI file (fixed-width `MMAN_*.txt`) using the B/L list (Excel/CSV), outputs `MMAN_EDI.txt`
 
@@ -6,7 +6,7 @@ Can be used as a standalone Python program or as a **Claude Code skill** (`chang
 
 ## Web version
 
-**https://rattanao.github.io/check-status-mman/**
+**https://rattanao.github.io/Change-status-mman/**
 
 1. Drop in the MMAN `.txt` file
 2. Drop in the Status list (`.xls` / `.xlsx` / `.csv`)
