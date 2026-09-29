@@ -155,12 +155,18 @@ bindDrop("dropList", "inList", "fnList", async f => {
   const wb = /\.csv$/i.test(f.name) ? XLSX.read(new TextDecoder().decode(buf), { type: "string", raw: true })
                                      : XLSX.read(buf, { type: "array" });
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: "" });
+  // find columns A-C by header name, so any order works (KMBK: B/L, Status, POL · SUR: POL, Status, B/L)
+  const key = h => String(h).toLowerCase().replace(/[^a-z]/g, "");
+  const head = (rows[0] || []).slice(0, 3).map(key);
+  const find = p => head.findIndex(h => h.startsWith(p));
+  let ci = { bl: find("bl"), st: find("status"), pol: find("pol") };
+  if (Object.values(ci).some(i => i < 0)) ci = { bl: 0, st: 1, pol: 2 };
   const cfg = {};
   rows.slice(1).forEach(r => {
-    const bl = String(r[0] || "").trim();
+    const bl = String(r[ci.bl] || "").trim();
     if (!bl) return;
-    const st = String(r[1] || "");
-    cfg[bl] = { status: st.trim() ? st : null, pol: String(r[2] || "").trim().toUpperCase() };
+    const st = String(r[ci.st] || "");
+    cfg[bl] = { status: st.trim() ? st : null, pol: String(r[ci.pol] || "").trim().toUpperCase() };
   });
   if (!Object.keys(cfg).length) throw new Error("ไม่พบข้อมูลในคอลัมน์ A-C");
   listRows = cfg;

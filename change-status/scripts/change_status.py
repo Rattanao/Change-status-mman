@@ -30,13 +30,25 @@ CNTR_RE = re.compile(r"^[A-Z]{4}\d{7} ")
 UNIT_RE = re.compile(r"(\d{11}KGM\d{8})PG(\d{11}MTQ)")
 
 
+def map_columns(headers: list) -> list:
+    """Name columns A-C by their header text, so any order works
+    (KMBK form: B/L No., Status, POL; SUR form: POL, Status, B/L No.)."""
+    names = []
+    for h in headers:
+        k = re.sub(r"[^a-z]", "", str(h).lower())
+        names.append("bl" if k.startswith("bl") else "status" if k.startswith("status") else "pol" if k.startswith("pol") else None)
+    if sorted(n for n in names if n) == ["bl", "pol", "status"]:
+        return names
+    return ["bl", "status", "pol"]  # no recognisable headers: default order A=B/L, B=Status, C=POL
+
+
 def read_list(path: Path) -> dict:
     if path.suffix.lower() == ".csv":
         df = pd.read_csv(path, header=0, dtype=str)
     else:
         df = pd.read_excel(path, header=0, dtype=str)
     df = df.iloc[:, :3]
-    df.columns = ["bl", "status", "pol"]
+    df.columns = map_columns(list(df.columns))
     cfg = {}
     for r in df.itertuples():
         if not isinstance(r.bl, str) or not r.bl.strip():
@@ -100,12 +112,13 @@ def change_status(mman: Path, lst: Path, out: Path, shed_yes: str, shed_no: str)
 
 def find_inputs(folder: Path):
     inp = folder / "Input" if (folder / "Input").is_dir() else folder
-    txts = sorted(inp.glob("MMAN*.txt")) or sorted(inp.glob("*.txt"))
+    txts = [t for t in sorted(inp.glob("*.txt")) if not t.name.upper().startswith("MMAN_EDI")]
+    txts = [t for t in txts if t.name.upper().startswith("MMAN")] or txts
     lists = sorted([*inp.glob("*.xls"), *inp.glob("*.xlsx"), *inp.glob("*.csv")])
     if len(txts) != 1 or len(lists) != 1:
         raise SystemExit(f"ERROR: need exactly 1 MMAN .txt and 1 list file in {inp}; "
                          f"found txt={[t.name for t in txts]} list={[l.name for l in lists]}")
-    return txts[0], lists[0], folder / "MMAN_EDI.txt"
+    return txts[0], lists[0], inp / "MMAN_EDI.txt"
 
 
 def main():

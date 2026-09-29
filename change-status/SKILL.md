@@ -18,11 +18,14 @@ broke CRLF).
 
 ## Input
 
-- A folder with `Input/` containing **1** `MMAN_*.txt` + **1** list file (`.xls`, `.xlsx`, `.csv`)
-- List file: **only columns A-C are used** (ignore D-F; sometimes there are only A-C)
-  - A = B/L No. (base B/L, e.g. `HASLK01260700462`; also applied to sub-B/Ls `…462A`, `…462B`)
-  - B = Status to set, e.g. `9  N`, `7  N`; blank = keep the original status
-  - C = POL, e.g. `KRPUS`, `KRKAN`
+- A folder with `Input/` (or `input/`) containing **1** `MMAN_*.txt` + **1** list file (`.xls`, `.xlsx`, `.csv`)
+- List file: **only columns A-C are used** (ignore D-F; sometimes there are only A-C).
+  Columns are found **by header name**, so either form works:
+  - **KMBK form**: A = B/L No., B = Status, C = POL
+  - **SUR form** (e.g. `SUR.xls`): A = POL, B = Status, C = B/L No.
+  - B/L No. = base B/L, e.g. `HASLK01260700462`; also applied to sub-B/Ls `…462A`, `…462B`
+  - Status = the status to set, e.g. `9  N`, `7  N`; blank = keep the original status
+  - POL, e.g. `KRPUS`, `KRKAN`
 - If the list is a **PDF**, extract columns A-C into a CSV with the header `B/L No.,Status,POL`
   (keep the spacing in Status, e.g. `9  N`), then pass that CSV.
 
@@ -47,7 +50,7 @@ broke CRLF).
    PYTHONIOENCODING=utf-8 python "<skill dir>/scripts/change_status.py" "<folder containing Input>"
    ```
    or specify the files: `change_status.py <mman.txt> <list.xls> [-o out.txt]`.
-   The output is always `MMAN_EDI.txt` in the folder that contains `Input/`. The input files are never modified.
+   The output is always `MMAN_EDI.txt` **inside the `Input/` folder**. The input files are never modified.
    Requires `pandas`, `xlrd` (.xls) and `openpyxl` (.xlsx).
 2. Report to the user in Thai: how many B/Ls, 0145/0122 counts, how many status lines changed and to what, which B/Ls went PG→PX, and that the file size matches the original.
 3. If the script prints a `WARNING` (B/L not in the list, B/L without POL, unexpected layout), tell the user and ask. Don't guess.

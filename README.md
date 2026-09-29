@@ -33,7 +33,8 @@ After:    HASLK01260700462                   KRPUSTHBKKTHBKK0145GOLDWAY…
 
 ## B/L list file
 
-Only columns **A-C** are used (D-F ignored)
+Only columns **A-C** are used (D-F ignored). Columns are found by header name, so both forms work:
+**KMBK** (B/L No., Status, POL) and **SUR** (POL, Status, B/L No.)
 
 | B/L No. | Status | POL |
 |---|---|---|
@@ -57,8 +58,8 @@ Folder layout:
 check-status/
 ├── Input/
 │   ├── MMAN_THBKK_....txt
-│   └── status-kmbk.xls
-└── MMAN_EDI.txt        ← output
+│   ├── status-kmbk.xls   (or SUR.xls)
+│   └── MMAN_EDI.txt      ← output
 ```
 
 Run:
