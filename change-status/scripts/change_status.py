@@ -42,6 +42,16 @@ def map_columns(headers: list) -> list:
     return ["bl", "status", "pol"]  # no recognisable headers: default order A=B/L, B=Status, C=POL
 
 
+def norm_status(st: str) -> str:
+    """'7 N' / '7N' / '7   N' -> '7  N' (code at col 17, flag at col 20, as in the file)."""
+    t = st.split()
+    if len(t) == 1 and len(t[0]) == 2:
+        t = [t[0][0], t[0][1]]
+    if len(t) == 2 and len(t[0]) == 1 and len(t[1]) == 1:
+        return f"{t[0]}  {t[1]}".upper()
+    raise SystemExit(f"ERROR: unrecognised Status {st!r} (expected like '9  N')")
+
+
 def read_list(path: Path) -> dict:
     if path.suffix.lower() == ".csv":
         df = pd.read_csv(path, header=0, dtype=str)
@@ -53,7 +63,7 @@ def read_list(path: Path) -> dict:
     for r in df.itertuples():
         if not isinstance(r.bl, str) or not r.bl.strip():
             continue
-        st = r.status if isinstance(r.status, str) and r.status.strip() else None
+        st = norm_status(r.status) if isinstance(r.status, str) and r.status.strip() else None
         pol = r.pol.strip().upper() if isinstance(r.pol, str) else ""
         cfg[r.bl.strip()] = (st, pol)
     return cfg

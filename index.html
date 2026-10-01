@@ -165,12 +165,21 @@ bindDrop("dropList", "inList", "fnList", async f => {
   rows.slice(1).forEach(r => {
     const bl = String(r[ci.bl] || "").trim();
     if (!bl) return;
-    const st = String(r[ci.st] || "");
-    cfg[bl] = { status: st.trim() ? st : null, pol: String(r[ci.pol] || "").trim().toUpperCase() };
+    const st = normStatus(String(r[ci.st] || ""));
+    cfg[bl] = { status: st, pol: String(r[ci.pol] || "").trim().toUpperCase() };
   });
   if (!Object.keys(cfg).length) throw new Error("ไม่พบข้อมูลในคอลัมน์ A-C");
   listRows = cfg;
 });
+
+// "7 N" / "7N" / "7   N" -> "7  N" (code at col 17, flag at col 20, as in the file)
+function normStatus(st) {
+  if (!st.trim()) return null;
+  let t = st.trim().split(/\s+/);
+  if (t.length === 1 && t[0].length === 2) t = [t[0][0], t[0][1]];
+  if (t.length === 2 && t[0].length === 1 && t[1].length === 1) return (t[0] + "  " + t[1]).toUpperCase();
+  throw new Error("Status ไม่ถูกรูปแบบ: " + st);
+}
 
 const str = (b, s, e) => { let o = ""; for (let i = s; i < e; i++) o += String.fromCharCode(b[i]); return o; };
 const put = (b, pos, text) => { for (let i = 0; i < text.length; i++) b[pos + i] = text.charCodeAt(i); };
