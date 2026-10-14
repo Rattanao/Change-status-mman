@@ -4,6 +4,14 @@
 
 Can be used as a standalone Python program or as a **Claude Code skill** (`change-status`)
 
+## Guide
+
+**https://rattanao.github.io/Change-status-mman/guide.html** — step-by-step guide (Thai): online use, first-time install, everyday use with `run-change-status.bat`, list forms, what changes in the file, troubleshooting
+
+## Run on your PC (Windows)
+
+Put 1 MMAN `.txt` + 1 status list in `input\`, double-click **`run-change-status.bat`**, press Enter twice for the default SHED NO. (0145 / 0122). Output: `input\MMAN_EDI.txt`. The first run installs pandas, xlrd and openpyxl automatically.
+
 ## Web version
 
 **https://rattanao.github.io/Change-status-mman/**
