@@ -157,6 +157,9 @@ def main():
                        ("layout_warn", "Layout warning (check columns)")):
         if rep[key]:
             print(f"WARNING {label}: {rep[key]}")
+    if rep["bl_lines"] == 0:
+        print("ERROR: no B/L in the MMAN file matches the list - check that the list belongs to this vessel")
+        return 1
 
 
 if __name__ == "__main__":
