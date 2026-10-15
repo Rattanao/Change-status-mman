@@ -159,6 +159,10 @@ footer .credit { color: var(--ink); }
       <li><div><p><b>เปิดหน้า <a href="./">ทำออนไลน์</a></b> แล้วเลือกไฟล์ MMAN (.txt)</p></div></li>
       <li><div><p><b>เลือกรายการ STATUS</b> (.xls / .xlsx / .csv)</p></div></li>
       <li><div>
+        <p><b>เริ่มต้นเก็บ B/L … ถึง B/L</b> (ถ้าต้องการตัดไฟล์)</p>
+        <p class="note">เก็บบรรทัด PSKV ไว้ แล้วเก็บเฉพาะ B/L ในช่วงนี้ (รวม sub-B/L …A, …B และบรรทัดตู้) ที่เหลือตัดออก · ว่างช่องเริ่มต้น = ตั้งแต่ B/L แรก · ว่างช่องถึง = ถึงบรรทัดสุดท้าย · ว่างทั้งสองช่อง = ไม่ตัด</p>
+      </div></li>
+      <li><div>
         <p><b>ตรวจ SHED NO.</b> ช่องซ้าย = B/L ที่มี Status, ช่องขวา = B/L อื่น</p>
         <p class="note">ค่าเริ่มต้น <code>0145</code> / <code>0122</code> เปลี่ยนได้ตามงาน</p>
       </div></li>
@@ -318,6 +322,7 @@ footer .credit { color: var(--ink); }
           <tr><td>WARNING B/L NOT in list</td><td>B/L ในไฟล์ MMAN ที่ไม่มีในรายการ จะไม่ถูกแก้ เพิ่มในรายการแล้วรันใหม่</td></tr>
           <tr><td>ERROR: unrecognised Status</td><td>ช่อง Status ต้องเป็นตัวเลข 1 ตัว + ตัวอักษร 1 ตัว เช่น 9  N</td></tr>
           <tr><td>PermissionError: [Errno 13]</td><td>ปิดไฟล์ MMAN_EDI.txt ที่เปิดค้างไว้ แล้วรันใหม่</td></tr>
+          <tr><td>ไม่พบ B/L เริ่มต้น … / ไม่พบ B/L … ในไฟล์ MMAN</td><td>พิมพ์เลข B/L ให้ตรงกับในไฟล์ MMAN (B/L หลัก ไม่ต้องใส่ A, B ท้าย) และ “ถึง B/L” ต้องอยู่หลัง B/L เริ่มต้น</td></tr>
           <tr><td>หน้าเว็บยังเป็นแบบเก่า</td><td>กด Ctrl + F5</td></tr>
         </tbody>
       </table>
