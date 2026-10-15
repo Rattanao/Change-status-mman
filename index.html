@@ -78,6 +78,14 @@ code, .mono { font-family: "IBM Plex Mono", monospace; font-size: 13px; }
 mark { background: var(--hl); color: var(--hl-text); border-radius: 2px; }
 .pre { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; white-space: pre; overflow-x: auto; background: var(--bg); padding: 10px; border-radius: 8px; }
 details summary { cursor: pointer; color: var(--muted); }
+.fld .rm { display: inline-block; margin-top: 6px; font: 500 13px "Kanit", sans-serif; padding: 3px 10px; border-radius: 4px;
+  background: transparent; color: #b42318; border: 1px solid #e3a6a0; }
+.fld .rm:hover:not(:disabled) { background: #fdecea; }
+button.ghost { background: transparent; color: var(--navy); border: 1px solid var(--line); }
+button.ghost:hover:not(:disabled) { background: var(--bg); }
+:root[data-theme="dark"] button.ghost { color: #9cc0ee; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button.ghost { color: #9cc0ee; } }
+.res-btns { display: flex; gap: 10px; flex-wrap: wrap; }
 .hidden { display: none; }
 </style>
 </head>
@@ -93,11 +101,13 @@ details summary { cursor: pointer; color: var(--muted); }
         <label class="lb" for="inTxt">MMAN (.txt)</label>
         <input type="file" id="inTxt" accept=".txt">
         <span class="fn" id="fnTxt"></span>
+        <button type="button" class="rm hidden" id="rmTxt">✕ ลบไฟล์</button>
       </div>
       <div class="fld" id="dropList">
         <label class="lb" for="inList">STATUS (.xls / .xlsx / .csv)</label>
         <input type="file" id="inList" accept=".xls,.xlsx,.csv">
         <span class="fn" id="fnList"></span>
+        <button type="button" class="rm hidden" id="rmList">✕ ลบไฟล์</button>
       </div>
       <div class="fld">
         <label class="lb" for="startBl">เริ่มต้นเก็บ B/L</label>
@@ -122,7 +132,10 @@ details summary { cursor: pointer; color: var(--muted); }
   <div class="card hidden" id="result">
     <div class="res-head">
       <h2>ผลการเปลี่ยน Status</h2>
-      <button id="dl" class="sec hidden">ดาวน์โหลด MMAN_EDI.txt</button>
+      <div class="res-btns">
+        <button id="dl" class="sec hidden">ดาวน์โหลด MMAN_EDI.txt</button>
+        <button id="clearAll" class="ghost">ล้างทั้งหมด</button>
+      </div>
     </div>
     <div id="msgs"></div>
     <div class="stats" id="stats"></div>
@@ -160,7 +173,7 @@ function bindDrop(dropId, inputId, fnId, onFile) {
   ["dragleave", "drop"].forEach(e => d.addEventListener(e, ev => { ev.preventDefault(); d.classList.remove("over"); }));
   d.addEventListener("drop", ev => ev.dataTransfer.files[0] && handle(ev.dataTransfer.files[0]));
   async function handle(f) {
-    try { await onFile(f); $(fnId).textContent = f.name; d.classList.add("done"); }
+    try { await onFile(f); $(fnId).textContent = f.name; d.classList.add("done"); d.querySelector(".rm").classList.remove("hidden"); }
     catch (e) { $(fnId).textContent = "อ่านไฟล์ไม่ได้: " + e.message; d.classList.remove("done"); }
     $("run").disabled = !(txtBuf && listRows);
     $("dl").classList.add("hidden");
@@ -308,6 +321,25 @@ function render(rep, changed, previews, shedYes, shedNo) {
 }
 
 $("run").addEventListener("click", run);
+
+// remove a picked file (clears the selection on this page only — files on the computer are not touched)
+function removeFile(which) {
+  const [inp, fn, drop] = which === "txt" ? ["inTxt", "fnTxt", "dropTxt"] : ["inList", "fnList", "dropList"];
+  if (which === "txt") txtBuf = null; else listRows = null;
+  $(inp).value = ""; $(fn).textContent = "";
+  $(drop).classList.remove("done"); $(drop).querySelector(".rm").classList.add("hidden");
+  $("run").disabled = !(txtBuf && listRows);
+  outBytes = cutBuf = null;
+  $("result").classList.add("hidden"); $("dl").classList.add("hidden");
+}
+$("rmTxt").addEventListener("click", () => removeFile("txt"));
+$("rmList").addEventListener("click", () => removeFile("list"));
+$("clearAll").addEventListener("click", () => {
+  removeFile("txt"); removeFile("list");
+  $("startBl").value = ""; $("endBl").value = "";
+  $("msgs").innerHTML = $("stats").innerHTML = $("tbl").innerHTML = $("preview").innerHTML = "";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
 ["startBl", "endBl"].forEach(id => $(id).addEventListener("input", () => $("dl").classList.add("hidden")));
 $("dl").addEventListener("click", () => {
   const a = document.createElement("a");
