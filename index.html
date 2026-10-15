@@ -78,14 +78,14 @@ code, .mono { font-family: "IBM Plex Mono", monospace; font-size: 13px; }
 mark { background: var(--hl); color: var(--hl-text); border-radius: 2px; }
 .pre { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; white-space: pre; overflow-x: auto; background: var(--bg); padding: 10px; border-radius: 8px; }
 details summary { cursor: pointer; color: var(--muted); }
-.fld .rm { display: inline-block; margin-top: 6px; font: 500 13px "Kanit", sans-serif; padding: 3px 10px; border-radius: 4px;
-  background: transparent; color: #b42318; border: 1px solid #e3a6a0; }
-.fld .rm:hover:not(:disabled) { background: #fdecea; }
-button.ghost { background: transparent; color: var(--navy); border: 1px solid var(--line); }
-button.ghost:hover:not(:disabled) { background: var(--bg); }
-:root[data-theme="dark"] button.ghost { color: #9cc0ee; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button.ghost { color: #9cc0ee; } }
-.res-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.btns { display: flex; gap: 10px; }
+.btns button { flex: 1; }
+button.ghost { background: var(--card); color: var(--navy); border: 1.5px solid var(--navy); padding: 10.5px 20px; }
+button.ghost:hover:not(:disabled) { background: #eef3f9; }
+:root[data-theme="dark"] button.ghost { color: #9cc0ee; border-color: #6f96c6; }
+:root[data-theme="dark"] button.ghost:hover:not(:disabled) { background: #1f2a3a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button.ghost { color: #9cc0ee; border-color: #6f96c6; }
+  :root:not([data-theme="light"]) button.ghost:hover:not(:disabled) { background: #1f2a3a; } }
 .hidden { display: none; }
 </style>
 </head>
@@ -101,13 +101,11 @@ button.ghost:hover:not(:disabled) { background: var(--bg); }
         <label class="lb" for="inTxt">MMAN (.txt)</label>
         <input type="file" id="inTxt" accept=".txt">
         <span class="fn" id="fnTxt"></span>
-        <button type="button" class="rm hidden" id="rmTxt">✕ ลบไฟล์</button>
       </div>
       <div class="fld" id="dropList">
         <label class="lb" for="inList">STATUS (.xls / .xlsx / .csv)</label>
         <input type="file" id="inList" accept=".xls,.xlsx,.csv">
         <span class="fn" id="fnList"></span>
-        <button type="button" class="rm hidden" id="rmList">✕ ลบไฟล์</button>
       </div>
       <div class="fld">
         <label class="lb" for="startBl">เริ่มต้นเก็บ B/L</label>
@@ -124,7 +122,10 @@ button.ghost:hover:not(:disabled) { background: var(--bg); }
           <input id="shedNo" value="0122" maxlength="4" placeholder="0122" aria-label="Shed B/L อื่น">
         </div>
       </div>
-      <button id="run" disabled>Change status</button>
+      <div class="btns">
+        <button id="run" disabled>Change status</button>
+        <button type="button" id="clearAll" class="ghost">ลบไฟล์</button>
+      </div>
     </div>
     <p class="note">เริ่มต้นเก็บ B/L … ถึง B/L: เก็บบรรทัด PSKV ไว้ แล้วเก็บเฉพาะตั้งแต่ B/L เริ่มต้นจนถึง B/L สุดท้ายที่กำหนด (รวม sub-B/L …A, …B และบรรทัดตู้ของ B/L นั้น) ที่เหลือตัดออก · เว้นว่างทั้งสองช่อง = ไม่ตัด ใช้ทั้งไฟล์ · SHED NO.: B/L ที่มี Status ใช้ช่องซ้าย (0145) ที่เหลือใช้ช่องขวา (0122) · ประมวลผลในเบราว์เซอร์ ไม่มีการอัปโหลดไฟล์ · <a href="guide.html" style="color:inherit;font-weight:600">คู่มือการใช้งาน</a></p>
   </div>
@@ -132,10 +133,7 @@ button.ghost:hover:not(:disabled) { background: var(--bg); }
   <div class="card hidden" id="result">
     <div class="res-head">
       <h2>ผลการเปลี่ยน Status</h2>
-      <div class="res-btns">
-        <button id="dl" class="sec hidden">ดาวน์โหลด MMAN_EDI.txt</button>
-        <button id="clearAll" class="ghost">ล้างทั้งหมด</button>
-      </div>
+      <button id="dl" class="sec hidden">ดาวน์โหลด MMAN_EDI.txt</button>
     </div>
     <div id="msgs"></div>
     <div class="stats" id="stats"></div>
@@ -173,7 +171,7 @@ function bindDrop(dropId, inputId, fnId, onFile) {
   ["dragleave", "drop"].forEach(e => d.addEventListener(e, ev => { ev.preventDefault(); d.classList.remove("over"); }));
   d.addEventListener("drop", ev => ev.dataTransfer.files[0] && handle(ev.dataTransfer.files[0]));
   async function handle(f) {
-    try { await onFile(f); $(fnId).textContent = f.name; d.classList.add("done"); d.querySelector(".rm").classList.remove("hidden"); }
+    try { await onFile(f); $(fnId).textContent = f.name; d.classList.add("done"); }
     catch (e) { $(fnId).textContent = "อ่านไฟล์ไม่ได้: " + e.message; d.classList.remove("done"); }
     $("run").disabled = !(txtBuf && listRows);
     $("dl").classList.add("hidden");
@@ -322,23 +320,15 @@ function render(rep, changed, previews, shedYes, shedNo) {
 
 $("run").addEventListener("click", run);
 
-// remove a picked file (clears the selection on this page only — files on the computer are not touched)
-function removeFile(which) {
-  const [inp, fn, drop] = which === "txt" ? ["inTxt", "fnTxt", "dropTxt"] : ["inList", "fnList", "dropList"];
-  if (which === "txt") txtBuf = null; else listRows = null;
-  $(inp).value = ""; $(fn).textContent = "";
-  $(drop).classList.remove("done"); $(drop).querySelector(".rm").classList.add("hidden");
-  $("run").disabled = !(txtBuf && listRows);
-  outBytes = cutBuf = null;
-  $("result").classList.add("hidden"); $("dl").classList.add("hidden");
-}
-$("rmTxt").addEventListener("click", () => removeFile("txt"));
-$("rmList").addEventListener("click", () => removeFile("list"));
+// ลบไฟล์: clear both picked files, the B/L range and the results (page only — files on the computer are not touched)
 $("clearAll").addEventListener("click", () => {
-  removeFile("txt"); removeFile("list");
-  $("startBl").value = ""; $("endBl").value = "";
+  txtBuf = listRows = outBytes = cutBuf = null;
+  ["inTxt", "inList", "startBl", "endBl"].forEach(id => $(id).value = "");
+  ["fnTxt", "fnList"].forEach(id => $(id).textContent = "");
+  ["dropTxt", "dropList"].forEach(id => $(id).classList.remove("done"));
+  $("run").disabled = true;
+  $("result").classList.add("hidden"); $("dl").classList.add("hidden");
   $("msgs").innerHTML = $("stats").innerHTML = $("tbl").innerHTML = $("preview").innerHTML = "";
-  window.scrollTo({ top: 0, behavior: "smooth" });
 });
 ["startBl", "endBl"].forEach(id => $(id).addEventListener("input", () => $("dl").classList.add("hidden")));
 $("dl").addEventListener("click", () => {
