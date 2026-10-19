@@ -34,6 +34,10 @@ body { margin: 0; background: var(--bg); color: var(--text);
 header.bar { background: var(--navy); color: var(--on-navy); padding: 16px 28px;
   display: flex; justify-content: space-between; align-items: center; gap: 8px 24px; flex-wrap: wrap; }
 header.bar h1 { font: 600 24px/1.4 "Kanit", sans-serif; margin: 0; }
+header.bar .brand { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; min-width: 0; }
+.logo-badge { background: #ffffff; border-radius: 6px; padding: 5px 10px; display: inline-flex; line-height: 0; flex: none; }
+.logo-badge img { height: 30px; width: auto; display: block; }
+@media (max-width: 640px) { .logo-badge img { height: 24px; } header.bar h1 { font-size: 20px; } }
 header.bar .credit { font: 400 13.5px/1.45 "Sarabun", sans-serif; text-align: right; opacity: .9; }
 header.bar .credit b { font-weight: 600; }
 @media (max-width: 640px) { header.bar .credit { text-align: left; } }
@@ -91,7 +95,10 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
 </head>
 <body>
 <header class="bar">
-  <h1>Change Status — MMAN × STATUS → MMAN_EDI.txt</h1>
+  <div class="brand">
+    <span class="logo-badge"><img src="assets/hal-logo.png" alt="Heung A Line"></span>
+    <h1>Change Status — MMAN × STATUS → MMAN_EDI.txt</h1>
+  </div>
   <div class="credit">Project by <b>Ms. Rattana Mudlae</b><br>Position Import DOC.</div>
 </header>
 <main>

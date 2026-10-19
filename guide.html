@@ -58,6 +58,9 @@ code, .mono { font-family: var(--mono); font-size: 0.88em; }
 code { background: var(--code); padding: 1px 6px; border-radius: 4px; }
 
 .head { display: grid; gap: 14px; padding-block: 8px 4px; }
+.logo-badge { justify-self: start; background: #ffffff; border-radius: 8px; padding: 6px 12px; display: inline-flex; line-height: 0; border: 1px solid var(--line); }
+.logo-badge img { height: 40px; width: auto; display: block; }
+@media (max-width: 480px) { .logo-badge img { height: 30px; } }
 .tag { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .lede { color: var(--muted); max-width: 62ch; font-size: 1.05rem; }
 .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: var(--mono); font-size: 0.85rem; }
@@ -137,6 +140,7 @@ footer .credit { color: var(--ink); }
 
 <div class="wrap">
   <header class="head">
+    <span class="logo-badge"><img src="assets/hal-logo.png" alt="Heung A Line"></span>
     <div class="tag">เครื่องมือแก้ไฟล์ MMAN EDI · ใบขนสินค้าขาเข้า</div>
     <h1>Change Status → MMAN</h1>
     <p class="lede">เติม POL, SHED NO., รหัสประเทศ และเปลี่ยน STATUS ตู้ ในไฟล์ MMAN ตามรายการ B/L ของงาน ได้ไฟล์ MMAN_EDI.txt ที่ความยาวทุกบรรทัดตรงเดิม พร้อมส่งต่อ</p>
