@@ -127,7 +127,7 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
         <span class="lb">SHED NO. (มี Status / อื่น)</span>
         <div class="shed">
           <input id="shedYes" value="0145" maxlength="4" placeholder="0145" aria-label="Shed B/L ที่มี Status">
-          <input id="shedNo" value="0122" maxlength="4" placeholder="0122" aria-label="Shed B/L อื่น">
+          <input id="shedNo" value="0122" maxlength="4" placeholder="ว่าง = ใช้ช่องซ้าย" aria-label="Shed B/L อื่น (ว่าง = ใช้ช่องซ้ายทุก B/L)">
         </div>
       </div>
       <div class="btns">
@@ -135,7 +135,7 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
         <button type="button" id="clearAll" class="ghost">ลบไฟล์</button>
       </div>
     </div>
-    <p class="note">เริ่มต้นเก็บ B/L … ถึง B/L: เก็บบรรทัด PSKV ไว้ แล้วเก็บเฉพาะตั้งแต่ B/L เริ่มต้นจนถึง B/L สุดท้ายที่กำหนด (รวม sub-B/L …A, …B และบรรทัดตู้ของ B/L นั้น) ที่เหลือตัดออก · เว้นว่างทั้งสองช่อง = ไม่ตัด ใช้ทั้งไฟล์ · SHED NO.: B/L ที่มี Status ใช้ช่องซ้าย (0145) ที่เหลือใช้ช่องขวา (0122) · ประมวลผลในเบราว์เซอร์ ไม่มีการอัปโหลดไฟล์ · <a href="guide.html" style="color:inherit;font-weight:600">คู่มือการใช้งาน</a></p>
+    <p class="note">เริ่มต้นเก็บ B/L … ถึง B/L: เก็บบรรทัด PSKV ไว้ แล้วเก็บเฉพาะตั้งแต่ B/L เริ่มต้นจนถึง B/L สุดท้ายที่กำหนด (รวม sub-B/L …A, …B และบรรทัดตู้ของ B/L นั้น) ที่เหลือตัดออก · เว้นว่างทั้งสองช่อง = ไม่ตัด ใช้ทั้งไฟล์ · SHED NO.: B/L ที่มี Status ใช้ช่องซ้าย (0145) ที่เหลือใช้ช่องขวา (0122) · ลบช่องขวาให้ว่าง = ใช้ SHED NO. ช่องซ้ายกับทุก B/L (เช่นงาน LCH) · ประมวลผลในเบราว์เซอร์ ไม่มีการอัปโหลดไฟล์ · <a href="guide.html" style="color:inherit;font-weight:600">คู่มือการใช้งาน</a></p>
   </div>
 
   <div class="card hidden" id="result">
@@ -263,7 +263,9 @@ function run() {
     return;
   }
   const src = cutBuf, out = new Uint8Array(src);
-  const shedYes = $("shedYes").value.padEnd(4).slice(0, 4), shedNo = $("shedNo").value.padEnd(4).slice(0, 4);
+  // ช่อง "อื่น" ว่าง = ใช้ SHED NO. ช่องซ้ายกับทุก B/L (เช่นงาน LCH ที่ไม่มี Status)
+  const yes = $("shedYes").value.trim(), no = $("shedNo").value.trim() || yes;
+  const shedYes = yes.padEnd(4).slice(0, 4), shedNo = no.padEnd(4).slice(0, 4);
   const rep = { bl: [], statusCount: {}, pg: [], notInList: [], noPol: [], layout: [], cut: cutInfo };
   const lines = [];
   let cur = null, start = 0;
@@ -306,7 +308,8 @@ function render(rep, changed, previews, shedYes, shedNo) {
   const nYes = rep.bl.filter(b => b.status).length;
   const statusTxt = Object.entries(rep.statusCount).map(([k, v]) => `${k.trim()} ×${v}`).join(", ") || "ไม่มี";
   $("stats").innerHTML = [
-    [rep.bl.length, "B/L ที่แก้"], [nYes, `Shed ${shedYes}`], [rep.bl.length - nYes, `Shed ${shedNo}`],
+    [rep.bl.length, "B/L ที่แก้"],
+    ...(shedYes === shedNo ? [[rep.bl.length, `Shed ${shedYes} (ทุก B/L)`]] : [[nYes, `Shed ${shedYes}`], [rep.bl.length - nYes, `Shed ${shedNo}`]]),
     [Object.values(rep.statusCount).reduce((a, b) => a + b, 0), "บรรทัดตู้ที่เปลี่ยน Status"], [rep.pg.length, "PG → PX"], [changed, "ไบต์ที่เปลี่ยน"]
   ].map(([n, l]) => `<div class="stat"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join("");
   const cutTxt = rep.cut ? `ตัดออก ${rep.cut.removed} บรรทัด (${rep.cut.total} → ${rep.cut.kept} บรรทัด) · ขนาดไฟล์ ${outBytes.length.toLocaleString()} ไบต์`

@@ -136,8 +136,13 @@ def main():
     ap.add_argument("paths", nargs="+")
     ap.add_argument("-o", "--output")
     ap.add_argument("--shed-yes", default="0145")
-    ap.add_argument("--shed-no", default="0122")
+    ap.add_argument("--shed-no", default="0122", help='"" = use --shed-yes for every B/L (e.g. LCH jobs without Status)')
+    ap.add_argument("--shed", help="one SHED NO. for every B/L (same as --shed-yes X --shed-no X)")
     a = ap.parse_args()
+    if a.shed:
+        a.shed_yes = a.shed_no = a.shed
+    if not a.shed_no.strip():
+        a.shed_no = a.shed_yes
     if len(a.paths) == 1:
         mman, lst, out = find_inputs(Path(a.paths[0]))
     else:
@@ -148,8 +153,11 @@ def main():
     rep = change_status(mman, lst, out, a.shed_yes, a.shed_no)
 
     print(f"MMAN : {mman}\nLIST : {lst}\nOUT  : {out}")
-    print(f"B/L lines edited : {rep['bl_lines']}  (shed {a.shed_yes}: {len(rep['shed_yes'])}, "
-          f"shed {a.shed_no}: {len(rep['shed_no'])})")
+    if a.shed_yes == a.shed_no:
+        print(f"B/L lines edited : {rep['bl_lines']}  (shed {a.shed_yes} for every B/L)")
+    else:
+        print(f"B/L lines edited : {rep['bl_lines']}  (shed {a.shed_yes}: {len(rep['shed_yes'])}, "
+              f"shed {a.shed_no}: {len(rep['shed_no'])})")
     print("Status set       : " + (", ".join(f"{k.strip()!r} x{v}" for k, v in rep["status_lines"].items()) or "none"))
     print(f"PG -> PX         : {rep['pg_to_px'] or 'none'}")
     print(f"Size / changed   : {rep['size']} bytes, {rep['bytes_changed']} bytes changed")

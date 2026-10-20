@@ -36,7 +36,7 @@ broke CRLF).
 | 1 | col 35-39 | POL (column C) |
 | 2 | col 40-44 | copy of #3 (always the same as THBKK) |
 | 3 | col 45-49 | THBKK from the original, unchanged |
-| 4 | col 50-53 | shed: `0145` if the B/L has a Status, otherwise `0122` (`--shed-yes/--shed-no` to change) |
+| 4 | col 50-53 | shed: `0145` if the B/L has a Status, otherwise `0122` (`--shed-yes/--shed-no` to change; `--shed X` = one code for every B/L, e.g. LCH jobs with no Status — ask the user which code) |
 | 5 | col 843-844 | first 2 letters of POL (`KR`), replacing `TH` |
 | 6 | container line col 17 | Status from column B (`8  N` → `9  N`) |
 | – | package unit | `PG` → `PX` on every B/L |

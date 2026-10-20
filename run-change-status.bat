@@ -26,7 +26,8 @@ if not defined PY (
 set "SHEDYES=0145"
 set "SHEDNO=0122"
 set /p "SHEDYES=SHED NO. สำหรับ B/L ที่มี Status [กด Enter = 0145]: "
-set /p "SHEDNO=SHED NO. สำหรับ B/L อื่น [กด Enter = 0122]: "
+set /p "SHEDNO=SHED NO. สำหรับ B/L อื่น [กด Enter = 0122 / พิมพ์ = ใช้ค่าเดียวกับข้างบน]: "
+if "%SHEDNO%"=="=" set "SHEDNO=%SHEDYES%"
 echo.
 
 %PY% change-status\scripts\change_status.py "%~dp0." --shed-yes %SHEDYES% --shed-no %SHEDNO%
