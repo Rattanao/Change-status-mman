@@ -155,8 +155,8 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
       <p><b>ขั้นที่ 2 Change status</b> (กับ B/L ที่เหลือ)</p>
       <ol>
         <li>col 36-40 = POL (คอลัมน์ C)</li>
-        <li>col 41-45 = THBKK (เหมือนข้อ 3 เสมอ)</li>
-        <li>col 46-50 = THBKK ตามต้นฉบับ</li>
+        <li>col 41-45 = ท่าเรือของ B/L ส่วนใหญ่ในไฟล์ (เช่น THBKK, THLCH) · เช่น CNTAO<b>THLCH</b>THLKR0332</li>
+        <li>col 46-50 = ท่าเรือตามต้นฉบับ (THBKK, THLCH, THLKR, …) คงเดิม ห้ามแก้</li>
         <li>col 51-54 = Shed ล็อคตามท่าต้นฉบับ: BMT 0110 · SCT 0302 · LKR 0332 · UCT 0113 · LCH ที่เป็น DG (มี UN/CLASS) 2826 · BKK และ LCH อื่นๆ ตามช่อง SHED NO. (0145 ถ้า B/L มี Status / 0122 ที่เหลือ · ช่องขวาว่าง = ใช้ช่องซ้าย)</li>
         <li>col 844-845 = อักษร 2 ตัวแรกของ POL (แทน TH)</li>
         <li>บรรทัดตู้ = Status จากคอลัมน์ B (เช่น 8&nbsp;&nbsp;N → 9&nbsp;&nbsp;N) ว่าง = คงเดิม</li>
@@ -344,6 +344,11 @@ function run() {
       lines.push([start, end]); start = i + 1;
     }
   }
+  // port of discharge (col 41-45) = the port most B/Ls have in col 46-50 (THBKK, THLCH); THLKR etc. stay in col 46-50
+  const ports = {};
+  for (const [s] of lines) if (str(src, s, s + 4) === "HASL") { const p = str(src, s + COL.PORT, s + COL.PORT + 5); if (p.trim()) ports[p] = (ports[p] || 0) + 1; }
+  const portMain = Object.keys(ports).sort((a, b) => ports[b] - ports[a])[0] || "";
+  rep.port = portMain;
   const previews = [];
   for (const [s, e] of lines) {
     const head = str(src, s, Math.min(e, s + 20));
@@ -354,7 +359,7 @@ function run() {
       if (e - s < COL.CTRY + 2 || !str(src, s + COL.PORT, s + COL.PORT + 5).trim() || str(src, s + COL.POL, s + COL.COPY).trim()) rep.layout.push(bl);
       if (c.pol) { put(out, s + COL.POL, c.pol.padEnd(5).slice(0, 5)); put(out, s + COL.CTRY, c.pol.slice(0, 2)); }
       else rep.noPol.push(bl);
-      put(out, s + COL.COPY, str(src, s + COL.PORT, s + COL.PORT + 5));
+      put(out, s + COL.COPY, portMain || str(src, s + COL.PORT, s + COL.PORT + 5));
       const port = str(src, s + COL.PORT, s + COL.PORT + 5), dg = !!c.dg || DG_RE.test(str(src, s + 3302, e));
       const sh = PORT_SHED[port] || (port === "THLCH" && dg ? SHED_LCH_DG : (c.status ? shedYes : shedNo));
       put(out, s + COL.SHED, sh);
@@ -401,6 +406,7 @@ function render(rep, changed, previews, shedYes, shedNo) {
   let msgs = `<div class="okmsg">${cutTxt} · Status: ${esc(statusTxt)}${rep.pg.length ? " · PG→PX: " + rep.pg.join(", ") : ""}</div>`;
   if (rep.notInList.length) msgs += `<div class="warn">B/L ไม่อยู่ในรายการ (ไม่ได้แก้): ${rep.notInList.join(", ")}</div>`;
   if (rep.noPol.length) msgs += `<div class="warn">B/L ไม่มี POL: ${rep.noPol.join(", ")}</div>`;
+  msgs += `<div class="okmsg">ท่าเรือ col 41-45: ${esc(rep.port || "-")}</div>`;
   msgs += `<div class="okmsg">ชื่อ consignee / notify จาก col 1765 (เว้นวรรค 1 เคาะ): แก้ ${rep.names.changed.length} B/L${rep.names.changed.length ? " (" + rep.names.changed.join(", ") + ")" : ""} · ตรงอยู่แล้ว ${rep.names.same.length} B/L</div>`;
   if (rep.names.transit.length) msgs += `<div class="warn">B/L TRANSIT/TRANSHIPMENT ชื่อคงเดิม: ${rep.names.transit.join(", ")}${rep.transitCtry.length ? " · ประเทศปลายทาง col 1670 (และรหัสหน้า description): " + rep.transitCtry.join(", ") : ""}</div>`;
   if (rep.cleared.length) msgs += `<div class="okmsg">ลบเลขภาษี notify และที่อยู่ consignee / notify: ${rep.cleared.length} B/L</div>`;

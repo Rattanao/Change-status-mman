@@ -20,7 +20,7 @@ import pandas as pd
 
 ENC = "latin-1"          # byte-for-byte safe; the file is fixed-width, never change its length
 COL_POL = 35             # 1. POL (5 chars)
-COL_COPY = 40            # 2. copy of col 45-49 (THBKK)
+COL_COPY = 40            # 2. port of discharge = the port most B/Ls have in col 45-49 (THBKK, THLCH)
 COL_PORT = 45            # 3. original THBKK - unchanged
 COL_SHED = 50            # 4. shed code (4 chars)
 COL_CTRY = 843           # 5. first 2 letters of POL (replaces TH)
@@ -166,6 +166,8 @@ def change_status(mman: Path, lst: Path, out: Path, shed_yes: str, shed_no: str)
     rep = {"bl_lines": 0, "shed_yes": [], "shed_no": [], "sheds": Counter(), "dg": [], "status_lines": Counter(),
            "pg_to_px": [], "not_in_list": [], "no_pol": [], "layout_warn": [],
            "names": {"changed": [], "same": [], "transit": [], "differ": []}, "transit_ctry": [], "transit_no_ctry": [], "cleared": []}
+    ports = Counter(p[COL_PORT:COL_PORT + 5] for p in parts if BL_RE.match(p) and p[COL_PORT:COL_PORT + 5].strip())
+    rep["port"] = port_main = ports.most_common(1)[0][0] if ports else ""
     cur = None
     for i, line in enumerate(parts):
         if BL_RE.match(line):
@@ -185,7 +187,7 @@ def change_status(mman: Path, lst: Path, out: Path, shed_yes: str, shed_no: str)
                 line = set_at(line, COL_CTRY, pol[:2])
             else:
                 rep["no_pol"].append(bl)
-            line = set_at(line, COL_COPY, line[COL_PORT:COL_PORT + 5])
+            line = set_at(line, COL_COPY, port_main or line[COL_PORT:COL_PORT + 5])
             port = line[COL_PORT:COL_PORT + 5]
             sh = PORT_SHED.get(port) or (SHED_LCH_DG if port == "THLCH" and dg else (shed_yes if st else shed_no))
             line = set_at(line, COL_SHED, sh)
@@ -262,7 +264,7 @@ def main():
     rep = change_status(mman, lst, out, a.shed_yes, a.shed_no)
 
     print(f"MMAN : {mman}\nLIST : {lst}\nOUT  : {out}")
-    print(f"B/L lines edited : {rep['bl_lines']}")
+    print(f"B/L lines edited : {rep['bl_lines']}  (port col 41-45: {rep['port']})")
     print("SHED             : " + ", ".join(f"{k} x{v}" for k, v in sorted(rep["sheds"].items())))
     if rep["dg"]:
         print(f"DG B/L           : {rep['dg']}")
