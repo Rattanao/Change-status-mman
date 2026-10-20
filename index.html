@@ -160,7 +160,11 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
         <li>col 51-54 = Shed: 0145 ถ้า B/L มี Status / 0122 ที่เหลือ</li>
         <li>col 844-845 = อักษร 2 ตัวแรกของ POL (แทน TH)</li>
         <li>บรรทัดตู้ = Status จากคอลัมน์ B (เช่น 8&nbsp;&nbsp;N → 9&nbsp;&nbsp;N) ว่าง = คงเดิม</li>
-        <li>หน่วยหีบห่อ PG → PX ทุก B/L · ตัวอักษร O หน้า description คงเดิม</li>
+        <li>หน่วยหีบห่อ PG → PX ทุก B/L · ตัวอักษร O หน้า description คงเดิม (ยกเว้น TRANSIT/TRANSHIPMENT ตามข้อด้านล่าง)</li>
+        <li>ชื่อ consignee (col 881, 974) และชื่อ notify (col 1672) = ชื่อที่ col 1765 เว้นวรรค 1 เคาะเท่านั้น ยกเว้น B/L TRANSIT/TRANSHIPMENT หรือชื่อ consignee ไม่ตรงกับ notify ให้คงเดิม</li>
+        <li>B/L TRANSIT/TRANSHIPMENT: col 1670-1671 (TH หน้าชื่อ notify) = ประเทศปลายทาง LA=LAO · MM=MYANMAR · KH=CAMBODIA · CN=CHINA · PG=PAPUA NEW GUINEA · MY=MALAYSIA</li>
+        <li>ทุก B/L ยกเว้น TRANSIT/TRANSHIPMENT: ลบเลขภาษี notify (col 1742-1754) และที่อยู่ consignee (col 1416-1669) / notify (col 2207-2460) · เลขภาษี consignee และรหัสสาขาคงไว้</li>
+        <li>B/L TRANSIT/TRANSHIPMENT: col 3804 (ตัวอักษรหน้า description) TRANSIT = 7 · TRANSIT ไป LAOS = ตาม "CARGO MOVEMENT = L / 7" ใน MMAN (ไม่มี = 7) · TRANSHIPMENT = 3 · B/L อื่น O คงเดิม</li>
       </ol>
       B/L ในคอลัมน์ A ครอบคลุม sub-B/L ด้วย (…462A, …462B) · ความยาวบรรทัดและการขึ้นบรรทัด (CRLF) คงเดิมทุกไบต์ · ถ้าไม่ตัด ขนาดไฟล์เท่าต้นฉบับ
     </details>
@@ -169,6 +173,61 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
 
 <script>
 const COL = { POL: 35, COPY: 40, PORT: 45, SHED: 50, CTRY: 843, STATUS: 17 };
+// consignee name (880), consignee name+address (973), notify name (1671) <- name at notify name+address (1764)
+const NAME = { C_NAME: 880, C_FULL: 973, N_NAME: 1671, N_FULL: 1764, W: 70, W_FULL: 696 };  // name = 70 chars; tax ID + branch follow, never touched
+const TRANSIT_RE = /TRANSIT\b|\bTRANS[\s-]?S?HIP/i;  // also "INTRANSIT"
+// TRANSIT/TRANSHIPMENT: notify country (col 1669, "TH") = destination country,
+// found in the consignee name+address (col 973, last mention), else in the description (first mention)
+const N_CTRY = 1669;
+// every B/L except TRANSIT/TRANSHIPMENT: blank the notify tax ID and the consignee / notify address fields
+// (the consignee tax ID at 950 and both branch codes stay)
+const CLEAR = [[1741, 13], [1415, 254], [2206, 254]];
+// TRANSIT/TRANSHIPMENT: code before the description (col 3803, normally "O"):
+// TRANSHIPMENT = 3, TRANSIT = 7, TRANSIT to LAOS = the "CARGO MOVEMENT = L / 7" in the B/L (7 if none)
+const MOVE = 3803, TRANSHIP_RE = /\bTRANS[\s-]?S?HIP/i, MOVEMENT_RE = /MOVEMENT\s*[=:]?\s*([L7])\b/i;
+function transitMove(line, dest) {
+  if (TRANSHIP_RE.test(line)) return "3";
+  if (dest === "LA") { const m = MOVEMENT_RE.exec(line.slice(3302)); return m ? m[1].toUpperCase() : "7"; }
+  return "7";
+}
+const DEST_CTRY = [["LA", /\bLAOS?\b|\bLAO\s*P\.?\s*D\.?\s*R|\bVIENTIANE\b/gi], ["MM", /\bMYANMAR\b|\bBURMA\b|\bYANGON\b/gi],
+  ["KH", /\bCAMBODIA\b|\bPHNOM\s*PENH\b/gi], ["CN", /\bCHINA\b/gi], ["PG", /\bPAPUA\s+NEW\s+GUINEA\b/gi], ["MY", /\bMALAYSIA\b/gi]];
+function destCountry(line) {
+  const hits = t => DEST_CTRY.flatMap(([c, re]) => [...t.matchAll(re)].map(m => [m.index, c])).sort((a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : 1));
+  const addr = hits(line.slice(NAME.C_FULL, NAME.C_FULL + NAME.W_FULL)), desc = hits(line.slice(3302));
+  if (addr.length) return addr[addr.length - 1][1];
+  return desc.length ? desc[0][1] : null;
+}
+const words = t => t.trim().split(/\s+/).filter(Boolean).join(" ");
+const setAt = (t, pos, v) => t.slice(0, pos) + v + t.slice(pos + v.length);
+
+// returns [line, result]: changed / same / transit (kept) / differ (consignee is not the notify name, kept)
+function fixNames(line) {
+  const old = line.slice(NAME.C_NAME, NAME.C_NAME + NAME.W).trimEnd();
+  if (!old) return [line, "same"];
+  if (TRANSIT_RE.test(line)) {
+    const c = destCountry(line);
+    line = setAt(line, MOVE, transitMove(line, c));
+    return [c ? setAt(line, N_CTRY, c) : line, "transit"];
+  }
+  const target = words(old), full = line.slice(NAME.N_FULL, NAME.N_FULL + NAME.W_FULL);
+  let nw = null;
+  for (const m of full.matchAll(/\S+/g)) {
+    const w = words(full.slice(0, m.index + m[0].length));
+    if (w === target) { nw = full.slice(0, m.index + m[0].length); break; }
+    if (w.length >= target.length) break;
+  }
+  if (nw === null) return [line, "differ"];
+  nw = words(nw);
+  let out = setAt(line, NAME.C_NAME, nw.padEnd(NAME.W));
+  out = setAt(out, NAME.N_NAME, nw.padEnd(NAME.W));
+  const field = out.slice(NAME.C_FULL, NAME.C_FULL + NAME.W_FULL);
+  if (field.startsWith(old)) {
+    const nf = nw + field.slice(old.length);
+    if (!nf.slice(NAME.W_FULL).trim()) out = setAt(out, NAME.C_FULL, nf.slice(0, NAME.W_FULL).padEnd(NAME.W_FULL));
+  }
+  return [out, out === line ? "same" : "changed"];
+}
 let txtBuf = null, listRows = null, outBytes = null, cutBuf = null;
 const $ = id => document.getElementById(id);
 
@@ -266,7 +325,8 @@ function run() {
   // ช่อง "อื่น" ว่าง = ใช้ SHED NO. ช่องซ้ายกับทุก B/L (เช่นงาน LCH ที่ไม่มี Status)
   const yes = $("shedYes").value.trim(), no = $("shedNo").value.trim() || yes;
   const shedYes = yes.padEnd(4).slice(0, 4), shedNo = no.padEnd(4).slice(0, 4);
-  const rep = { bl: [], statusCount: {}, pg: [], notInList: [], noPol: [], layout: [], cut: cutInfo };
+  const rep = { bl: [], statusCount: {}, pg: [], notInList: [], noPol: [], layout: [], cut: cutInfo, transitCtry: [], transitNoCtry: [], cleared: [],
+                names: { changed: [], same: [], transit: [], differ: [] } };
   const lines = [];
   let cur = null, start = 0;
   for (let i = 0; i <= src.length; i++) {
@@ -289,6 +349,17 @@ function run() {
       put(out, s + COL.SHED, c.status ? shedYes : shedNo);
       const m = /\d{11}KGM\d{8}PG\d{11}MTQ/.exec(str(src, s, e));
       if (m) { put(out, s + m.index + 22, "PX"); rep.pg.push(bl); }
+      if (e - s >= NAME.N_FULL + NAME.W_FULL) {
+        const [nl, res] = fixNames(str(out, s, e));
+        put(out, s, nl);
+        rep.names[res].push(bl);
+        if (res !== "transit") {
+          let cl = nl;
+          for (const [pos, w] of CLEAR) cl = setAt(cl, pos, " ".repeat(w));
+          if (cl !== nl) { put(out, s, cl); rep.cleared.push(bl); }
+        }
+        if (res === "transit") { const c = nl.slice(N_CTRY, N_CTRY + 2); if (c !== "TH") rep.transitCtry.push(`${bl}=${c} (${nl[MOVE]})`); else rep.transitNoCtry.push(bl); }
+      }
       rep.bl.push({ bl, status: c.status, pol: c.pol, shed: c.status ? shedYes : shedNo });
       if (previews.length < 6) previews.push([s, Math.min(e, s + 70)]);
     } else if (cur && /^[A-Z]{4}\d{7} /.test(head)) {
@@ -317,6 +388,11 @@ function render(rep, changed, previews, shedYes, shedNo) {
   let msgs = `<div class="okmsg">${cutTxt} · Status: ${esc(statusTxt)}${rep.pg.length ? " · PG→PX: " + rep.pg.join(", ") : ""}</div>`;
   if (rep.notInList.length) msgs += `<div class="warn">B/L ไม่อยู่ในรายการ (ไม่ได้แก้): ${rep.notInList.join(", ")}</div>`;
   if (rep.noPol.length) msgs += `<div class="warn">B/L ไม่มี POL: ${rep.noPol.join(", ")}</div>`;
+  msgs += `<div class="okmsg">ชื่อ consignee / notify จาก col 1765 (เว้นวรรค 1 เคาะ): แก้ ${rep.names.changed.length} B/L${rep.names.changed.length ? " (" + rep.names.changed.join(", ") + ")" : ""} · ตรงอยู่แล้ว ${rep.names.same.length} B/L</div>`;
+  if (rep.names.transit.length) msgs += `<div class="warn">B/L TRANSIT/TRANSHIPMENT ชื่อคงเดิม: ${rep.names.transit.join(", ")}${rep.transitCtry.length ? " · ประเทศปลายทาง col 1670 (และรหัสหน้า description): " + rep.transitCtry.join(", ") : ""}</div>`;
+  if (rep.cleared.length) msgs += `<div class="okmsg">ลบเลขภาษี notify และที่อยู่ consignee / notify: ${rep.cleared.length} B/L</div>`;
+  if (rep.transitNoCtry.length) msgs += `<div class="warn">B/L TRANSIT ไม่พบประเทศปลายทาง (คง TH ไว้ ตรวจสอบ): ${rep.transitNoCtry.join(", ")}</div>`;
+  if (rep.names.differ.length) msgs += `<div class="warn">ชื่อ consignee ไม่ตรงกับ notify (คงเดิม ตรวจสอบ): ${rep.names.differ.join(", ")}</div>`;
   if (rep.layout.length) msgs += `<div class="warn">ตำแหน่งคอลัมน์ผิดปกติ ตรวจสอบก่อนใช้: ${rep.layout.join(", ")}</div>`;
   $("msgs").innerHTML = msgs;
   $("tbl").innerHTML = "<tr><th>B/L No.</th><th>POL</th><th>Status</th><th>Shed</th></tr>" +

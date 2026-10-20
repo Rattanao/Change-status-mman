@@ -279,6 +279,9 @@ footer .credit { color: var(--ink); }
           <tr><td><span class="chip b">5</span></td><td class="pos">col 844–845</td><td>อักษร 2 ตัวแรกของ POL แทน TH (KR, CN)</td></tr>
           <tr><td><span class="chip y">6</span></td><td class="pos">บรรทัดตู้</td><td>Status ตามรายการ เช่น 8&nbsp;&nbsp;N → 9&nbsp;&nbsp;N</td></tr>
           <tr><td><span class="chip r">PX</span></td><td class="pos">หน่วยหีบห่อ</td><td>PG → PX ทุก B/L</td></tr>
+          <tr><td><span class="chip g">N</span></td><td class="pos">col 881 · 974 · 1672</td><td>ชื่อ consignee และชื่อ notify = ชื่อที่ col 1765 <b>เว้นวรรค 1 เคาะ</b> (ยกเว้น TRANSIT/TRANSHIPMENT หรือชื่อ consignee ไม่ตรงกับ notify = คงเดิม)</td></tr>
+          <tr><td><span class="chip y">T</span></td><td class="pos">col 1670 · 3804</td><td><b>TRANSIT/TRANSHIPMENT</b>: TH หน้าชื่อ notify = ประเทศปลายทาง (LA, MM, KH, CN, PG, MY) · ตัวอักษรหน้า description: TRANSIT = 7, TRANSIT ไป LAOS = ตาม CARGO MOVEMENT (L / 7), TRANSHIPMENT = 3</td></tr>
+          <tr><td><span class="chip">−</span></td><td class="pos">col 1742 · 1416 · 2207</td><td>ทุก B/L ยกเว้น TRANSIT/TRANSHIPMENT: ลบเลขภาษี notify และที่อยู่ consignee / notify (เลขภาษี consignee และรหัสสาขาคงไว้)</td></tr>
         </tbody>
       </table>
     </div>
@@ -286,7 +289,8 @@ footer .credit { color: var(--ink); }
       <div>
         <h3>คงเดิมเสมอ</h3>
         <ul class="check-list">
-          <li>ตัวอักษร <code>O</code> หน้า description</li>
+          <li>ตัวอักษร <code>O</code> หน้า description (ยกเว้น TRANSIT/TRANSHIPMENT)</li>
+          <li>ชื่อของ B/L TRANSIT/TRANSHIPMENT</li>
           <li>Status ของ B/L ที่ช่อง Status ว่าง</li>
           <li>B/L ที่ไม่อยู่ในรายการ (แจ้งเตือนให้)</li>
           <li>ไฟล์ต้นฉบับใน input ไม่ถูกแก้</li>

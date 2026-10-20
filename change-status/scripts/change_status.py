@@ -28,6 +28,77 @@ COL_STATUS = 17          # 6. status on container lines ("8  N" -> "9  N")
 BL_RE = re.compile(r"^HASL")
 CNTR_RE = re.compile(r"^[A-Z]{4}\d{7} ")
 UNIT_RE = re.compile(r"(\d{11}KGM\d{8})PG(\d{11}MTQ)")
+# 7. names: consignee name (880), consignee name+address (973) and notify name (1671)
+#    take the name written at the notify name+address field (1764), single spaces only
+COL_C_NAME, COL_C_FULL, COL_N_NAME, COL_N_FULL = 880, 973, 1671, 1764
+W_NAME, W_FULL = 70, 696   # name = 70 chars (880-949); 950-972 holds tax ID + branch, never touched
+TRANSIT_RE = re.compile(r"TRANSIT\b|\bTRANS[\s-]?S?HIP", re.I)   # also "INTRANSIT"
+# 8. TRANSIT/TRANSHIPMENT: notify country (col 1669, "TH") = destination country, found in the
+#    consignee name+address (col 973), else in the description ("... TO LAOS ...")
+COL_N_CTRY = 1669
+# 9. TRANSIT/TRANSHIPMENT: the code before the description (col 3803, normally "O"):
+#    TRANSHIPMENT = 3, TRANSIT = 7, TRANSIT to LAOS = the "CARGO MOVEMENT = L / 7" written in the B/L (7 if none)
+COL_MOVE = 3803
+TRANSHIP_RE = re.compile(r"\bTRANS[\s-]?S?HIP", re.I)
+MOVEMENT_RE = re.compile(r"MOVEMENT\s*[=:]?\s*([L7])\b", re.I)
+DEST_CTRY = [("LA", r"\bLAOS?\b|\bLAO\s*P\.?\s*D\.?\s*R|\bVIENTIANE\b"), ("MM", r"\bMYANMAR\b|\bBURMA\b|\bYANGON\b"),
+             ("KH", r"\bCAMBODIA\b|\bPHNOM\s*PENH\b"), ("CN", r"\bCHINA\b"), ("PG", r"\bPAPUA\s+NEW\s+GUINEA\b"),
+             ("MY", r"\bMALAYSIA\b")]
+# 10. every B/L except TRANSIT/TRANSHIPMENT: blank the notify tax ID and the address fields of the
+#     consignee and the notify party (the consignee tax ID at 950 and both branch codes stay)
+CLEAR = [(1741, 13), (1415, 254), (2206, 254)]   # notify tax ID, consignee address, notify address
+
+
+def dest_country(line: str):
+    """Country code of the transit destination, or None."""
+    def hits(text):
+        return sorted((m.start(), code) for code, pat in DEST_CTRY for m in re.finditer(pat, text, re.I))
+    addr, desc = hits(line[COL_C_FULL:COL_C_FULL + W_FULL]), hits(line[3302:])
+    if addr:
+        return addr[-1][1]   # the country closes the address
+    return desc[0][1] if desc else None
+
+
+def transit_move(line: str, dest):
+    """Code for col 3803 of a TRANSIT/TRANSHIPMENT B/L."""
+    if TRANSHIP_RE.search(line):
+        return "3"
+    if dest == "LA":
+        m = MOVEMENT_RE.search(line[3302:])
+        return m.group(1).upper() if m else "7"
+    return "7"
+
+
+def fix_names(line: str):
+    """Copy the name at col 1764 into cols 880, 973 and 1671 with single spaces only.
+    Returns (line, result): 'changed', 'same', 'transit' (TRANSIT/TRANSHIPMENT B/L, names kept)
+    or 'differ' (consignee is not the notify party, kept)."""
+    old = line[COL_C_NAME:COL_C_NAME + W_NAME].rstrip()
+    if not old:
+        return line, "same"
+    if TRANSIT_RE.search(line):
+        code = dest_country(line)
+        line = set_at(line, COL_MOVE, transit_move(line, code))
+        return (set_at(line, COL_N_CTRY, code) if code else line), "transit"
+    target, full, new = " ".join(old.split()), line[COL_N_FULL:COL_N_FULL + W_FULL], None
+    for m in re.finditer(r"\S+", full):
+        words = " ".join(full[:m.end()].split())
+        if words == target:
+            new = full[:m.end()]
+            break
+        if len(words) >= len(target):
+            break
+    if new is None:
+        return line, "differ"
+    new = " ".join(new.split())
+    out = set_at(line, COL_C_NAME, new.ljust(W_NAME))
+    out = set_at(out, COL_N_NAME, new.ljust(W_NAME))
+    field = out[COL_C_FULL:COL_C_FULL + W_FULL]
+    if field.startswith(old):
+        nf = new + field[len(old):]
+        if not nf[W_FULL:].strip():
+            out = set_at(out, COL_C_FULL, nf[:W_FULL].ljust(W_FULL))
+    return out, "changed" if out != line else "same"
 
 
 def map_columns(headers: list) -> list:
@@ -79,7 +150,8 @@ def change_status(mman: Path, lst: Path, out: Path, shed_yes: str, shed_no: str)
     parts = [p.decode(ENC) for p in re.split(rb"(\r\n|\n)", raw)]  # keep original line endings
 
     rep = {"bl_lines": 0, "shed_yes": [], "shed_no": [], "status_lines": Counter(),
-           "pg_to_px": [], "not_in_list": [], "no_pol": [], "layout_warn": []}
+           "pg_to_px": [], "not_in_list": [], "no_pol": [], "layout_warn": [],
+           "names": {"changed": [], "same": [], "transit": [], "differ": []}, "transit_ctry": [], "transit_no_ctry": [], "cleared": []}
     cur = None
     for i, line in enumerate(parts):
         if BL_RE.match(line):
@@ -104,6 +176,21 @@ def change_status(mman: Path, lst: Path, out: Path, shed_yes: str, shed_no: str)
             if m:
                 line = line[:m.start()] + m.group(1) + "PX" + m.group(2) + line[m.end():]
                 rep["pg_to_px"].append(bl)
+            if len(line) >= COL_N_FULL + W_FULL:
+                line, res = fix_names(line)
+                rep["names"][res].append(bl)
+                if res == "transit":
+                    code = line[COL_N_CTRY:COL_N_CTRY + 2]
+                    if code != "TH":
+                        rep["transit_ctry"].append(f"{bl}={code} move {line[COL_MOVE]}")
+                    else:
+                        rep["transit_no_ctry"].append(bl)
+                else:
+                    before = line
+                    for pos, width in CLEAR:
+                        line = set_at(line, pos, " " * width)
+                    if line != before:
+                        rep["cleared"].append(bl)
             rep["shed_yes" if st else "shed_no"].append(bl)
             rep["bl_lines"] += 1
             parts[i] = line
@@ -160,7 +247,16 @@ def main():
               f"shed {a.shed_no}: {len(rep['shed_no'])})")
     print("Status set       : " + (", ".join(f"{k.strip()!r} x{v}" for k, v in rep["status_lines"].items()) or "none"))
     print(f"PG -> PX         : {rep['pg_to_px'] or 'none'}")
+    n = rep["names"]
+    print(f"Names (col 1765) : changed {len(n['changed'])}, already single-spaced {len(n['same'])}")
+    if n["transit"]:
+        print(f"TRANSIT/TRANSHIP : names kept {n['transit']}  country/code: {rep['transit_ctry']}")
+    print(f"Cleared notify tax ID + addresses: {len(rep['cleared'])} B/L")
     print(f"Size / changed   : {rep['size']} bytes, {rep['bytes_changed']} bytes changed")
+    if rep["transit_no_ctry"]:
+        print(f"WARNING TRANSIT without a known destination country (TH kept): {rep['transit_no_ctry']}")
+    if n["differ"]:
+        print(f"WARNING consignee name is not the notify name (kept, check): {n['differ']}")
     for key, label in (("not_in_list", "B/L NOT in list (untouched)"), ("no_pol", "B/L without POL"),
                        ("layout_warn", "Layout warning (check columns)")):
         if rep[key]:

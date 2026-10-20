@@ -41,7 +41,12 @@ broke CRLF).
 | 6 | container line col 17 | Status from column B (`8  N` → `9  N`) |
 | – | package unit | `PG` → `PX` on every B/L |
 
-**Leave the letter `O` before the description (col 3803) unchanged.** The user cancelled the O→5 rule.
+| 7 | col 880 / 973 / 1671 | consignee name, consignee name+address, notify name = the name at col 1764, **single spaces only** (kept on TRANSIT/TRANSHIPMENT B/Ls, or when the consignee is not the notify party) |
+| 8 | col 1669-1670 | TRANSIT/TRANSHIPMENT: TH before the notify name = destination country (LA, MM, KH, CN, PG, MY) |
+| 9 | col 3803 | TRANSIT/TRANSHIPMENT only: TRANSIT = 7, TRANSIT to LAOS = CARGO MOVEMENT L/7 in the B/L (7 if none), TRANSHIPMENT = 3 |
+| 10 | col 1741 / 1415 / 2206 | every B/L except TRANSIT/TRANSHIPMENT: blank the notify tax ID and the consignee / notify addresses |
+
+Rules 7-10 are the same code as the 5-mman-vnsgn site. **Otherwise leave the letter `O` before the description (col 3803) unchanged.** The user cancelled the O→5 rule.
 
 ## Steps
 
