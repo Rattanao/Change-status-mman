@@ -10,7 +10,7 @@ Can be used as a standalone Python program or as a **Claude Code skill** (`chang
 
 ## Run on your PC (Windows)
 
-Put 1 MMAN `.txt` + 1 status list in `input\`, double-click **`run-change-status.bat`**, press Enter twice for the default SHED NO. (0145 / 0122). Output: `input\MMAN_EDI.txt`. The first run installs pandas, xlrd and openpyxl automatically.
+Put 1 MMAN `.txt` + 1 status list in `input\`, double-click **`run-change-status.bat`**, press Enter twice for the default SHED NO. (0145 / 0122). Output: `output\MMAN_EDI.txt`. The first run installs pandas, xlrd and openpyxl automatically.
 
 ## Web version
 
@@ -67,7 +67,8 @@ check-status/
 ├── Input/
 │   ├── MMAN_THBKK_....txt
 │   ├── status-kmbk.xls   (or SUR.xls)
-│   └── MMAN_EDI.txt      ← output
+└── output/
+    └── MMAN_EDI.txt      ← output
 ```
 
 Run:

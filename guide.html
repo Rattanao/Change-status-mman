@@ -212,7 +212,7 @@ footer .credit { color: var(--ink); }
         <p class="note">ถามสองค่า: B/L ที่มี Status และ B/L อื่น ถ้ากด Enter ข้าม จะใช้ <code>0145</code> และ <code>0122</code> · ช่องที่สองพิมพ์ <code>=</code> = ใช้ค่าเดียวกับช่องแรกทุก B/L (งาน LCH)</p>
       </div></li>
       <li><div>
-        <p><b>เปิดผลที่ <code>input\MMAN_EDI.txt</code></b></p>
+        <p><b>เปิดผลที่ <code>output\MMAN_EDI.txt</code></b></p>
         <p class="note">หน้าจอดำสรุปจำนวน B/L, Status ที่เปลี่ยน และ PG→PX ให้ ถ้ามีบรรทัด <code>WARNING</code> ให้อ่านก่อนใช้ไฟล์</p>
       </div></li>
     </ol>
@@ -275,11 +275,11 @@ footer .credit { color: var(--ink); }
           <tr><td><span class="chip b">1</span></td><td class="pos">col 36–40</td><td>POL จากรายการ เช่น KRPUS</td></tr>
           <tr><td><span class="chip g">2</span></td><td class="pos">col 41–45</td><td>THBKK (เหมือนข้อ 3 เสมอ)</td></tr>
           <tr><td><span class="chip">3</span></td><td class="pos">col 46–50</td><td>THBKK ตามต้นฉบับ ไม่แก้</td></tr>
-          <tr><td><span class="chip o">4</span></td><td class="pos">col 51–54</td><td>SHED NO.: <code>0145</code> ถ้า B/L มี Status, <code>0122</code> ที่เหลือ · ช่อง “อื่น” ว่าง = ใช้ค่าช่องซ้ายทุก B/L</td></tr>
+          <tr><td><span class="chip o">4</span></td><td class="pos">col 51–54</td><td>SHED NO. ล็อคตามท่าต้นฉบับ: <b>BMT 0110 · SCT 0302 · LKR 0332 · UCT 0113 · LCH ที่เป็น DG (มี UN/CLASS) 2826</b> · BKK และ LCH อื่นๆ ตามช่อง SHED NO. (<code>0145</code> ถ้า B/L มี Status, <code>0122</code> ที่เหลือ · ช่อง “อื่น” ว่าง = ใช้ค่าช่องซ้าย)</td></tr>
           <tr><td><span class="chip b">5</span></td><td class="pos">col 844–845</td><td>อักษร 2 ตัวแรกของ POL แทน TH (KR, CN)</td></tr>
           <tr><td><span class="chip y">6</span></td><td class="pos">บรรทัดตู้</td><td>Status ตามรายการ เช่น 8&nbsp;&nbsp;N → 9&nbsp;&nbsp;N</td></tr>
           <tr><td><span class="chip r">PX</span></td><td class="pos">หน่วยหีบห่อ</td><td>PG → PX ทุก B/L</td></tr>
-          <tr><td><span class="chip g">N</span></td><td class="pos">col 881 · 974 · 1672</td><td>ชื่อ consignee และชื่อ notify = ชื่อที่ col 1765 <b>เว้นวรรค 1 เคาะ</b> (ยกเว้น TRANSIT/TRANSHIPMENT หรือชื่อ consignee ไม่ตรงกับ notify = คงเดิม)</td></tr>
+          <tr><td><span class="chip g">N</span></td><td class="pos">col 881 · 974 · 1672</td><td>ชื่อ consignee และชื่อ notify = ชื่อที่ col 1765 <b>เสมอ เว้นวรรค 1 เคาะ</b> ทั้ง BKK และ LCH (ยกเว้น TRANSIT/TRANSHIPMENT ห้ามแก้ คงเดิม)</td></tr>
           <tr><td><span class="chip y">T</span></td><td class="pos">col 1670 · 3804</td><td><b>TRANSIT/TRANSHIPMENT</b>: TH หน้าชื่อ notify = ประเทศปลายทาง (LA, MM, KH, CN, PG, MY) · ตัวอักษรหน้า description: TRANSIT = 7, TRANSIT ไป LAOS = ตาม CARGO MOVEMENT (L / 7), TRANSHIPMENT = 3</td></tr>
           <tr><td><span class="chip">−</span></td><td class="pos">col 1742 · 1416 · 2207</td><td>ทุก B/L ยกเว้น TRANSIT/TRANSHIPMENT: ลบเลขภาษี notify และที่อยู่ consignee / notify (เลขภาษี consignee และรหัสสาขาคงไว้)</td></tr>
         </tbody>

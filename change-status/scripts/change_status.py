@@ -8,7 +8,7 @@ Options:
     --shed-no  0122   shed code for all other B/Ls
 
 The list file: only columns A-C are read -> A=B/L No., B=Status ("9  N", "7  N", blank), C=POL (KRPUS...).
-Output is always MMAN_EDI.txt (next to Input/ in folder mode). Input files are never modified.
+Output is always MMAN_EDI.txt (in output/ next to input/ in folder mode). Input files are never modified.
 """
 import argparse
 import re
@@ -47,6 +47,11 @@ DEST_CTRY = [("LA", r"\bLAOS?\b|\bLAO\s*P\.?\s*D\.?\s*R|\bVIENTIANE\b"), ("MM", 
 # 10. every B/L except TRANSIT/TRANSHIPMENT: blank the notify tax ID and the address fields of the
 #     consignee and the notify party (the consignee tax ID at 950 and both branch codes stay)
 CLEAR = [(1741, 13), (1415, 254), (2206, 254)]   # notify tax ID, consignee address, notify address
+# 4. shed locked by the original port (col 45-49); THLCH with DG (UN/CLASS) = 2826;
+#    THBKK and the other THLCH B/Ls use the SHED NO. given (0145 with Status / 0122 without)
+PORT_SHED = {"THBMT": "0110", "THSCT": "0302", "THLKR": "0332", "THUCT": "0113"}
+SHED_LCH_DG = "2826"
+DG_RE = re.compile(r"\bUN\s?(?:NO\.?\s?)?\d{4}\b|\bIMO\b|\bIMDG\b|\bCLASS\s?\d", re.I)
 
 
 def dest_country(line: str):
@@ -80,21 +85,27 @@ def fix_names(line: str):
         code = dest_country(line)
         line = set_at(line, COL_MOVE, transit_move(line, code))
         return (set_at(line, COL_N_CTRY, code) if code else line), "transit"
-    target, full, new = " ".join(old.split()), line[COL_N_FULL:COL_N_FULL + W_FULL], None
-    for m in re.finditer(r"\S+", full):
-        words = " ".join(full[:m.end()].split())
-        if words == target:
-            new = full[:m.end()]
-            break
-        if len(words) >= len(target):
-            break
-    if new is None:
+    full = line[COL_N_FULL:COL_N_FULL + W_FULL]
+
+    def prefix(target):
+        """The start of the 1764 field whose words are `target` (the name before the address)."""
+        for m in re.finditer(r"\S+", full):
+            words = " ".join(full[:m.end()].split())
+            if words == target:
+                return full[:m.end()]
+            if len(words) >= len(target):
+                return None
+        return None
+
+    notify = " ".join(line[COL_N_NAME:COL_N_NAME + W_NAME].split())
+    new = prefix(" ".join(old.split())) or (prefix(notify) if notify else None) or notify
+    if not new:
         return line, "differ"
-    new = " ".join(new.split())
+    new = " ".join(new.split())[:W_NAME]
     out = set_at(line, COL_C_NAME, new.ljust(W_NAME))
     out = set_at(out, COL_N_NAME, new.ljust(W_NAME))
     field = out[COL_C_FULL:COL_C_FULL + W_FULL]
-    if field.startswith(old):
+    if field.startswith(old):  # the consignee name opens its name+address field
         nf = new + field[len(old):]
         if not nf[W_FULL:].strip():
             out = set_at(out, COL_C_FULL, nf[:W_FULL].ljust(W_FULL))
@@ -128,15 +139,18 @@ def read_list(path: Path) -> dict:
         df = pd.read_csv(path, header=0, dtype=str)
     else:
         df = pd.read_excel(path, header=0, dtype=str)
-    df = df.iloc[:, :3]
+    dg_col = next((c for c in df.columns if re.sub(r"[^a-z]", "", str(c).lower()) == "dg"), None)
+    dg = df[dg_col].fillna("").astype(str).str.strip() != "" if dg_col is not None else pd.Series(False, index=df.index)
+    df = df.iloc[:, :3].copy()
     df.columns = map_columns(list(df.columns))
+    df["dg"] = dg
     cfg = {}
     for r in df.itertuples():
         if not isinstance(r.bl, str) or not r.bl.strip():
             continue
         st = norm_status(r.status) if isinstance(r.status, str) and r.status.strip() else None
         pol = r.pol.strip().upper() if isinstance(r.pol, str) else ""
-        cfg[r.bl.strip()] = (st, pol)
+        cfg[r.bl.strip()] = (st, pol, bool(r.dg))
     return cfg
 
 
@@ -149,7 +163,7 @@ def change_status(mman: Path, lst: Path, out: Path, shed_yes: str, shed_no: str)
     raw = mman.read_bytes()
     parts = [p.decode(ENC) for p in re.split(rb"(\r\n|\n)", raw)]  # keep original line endings
 
-    rep = {"bl_lines": 0, "shed_yes": [], "shed_no": [], "status_lines": Counter(),
+    rep = {"bl_lines": 0, "shed_yes": [], "shed_no": [], "sheds": Counter(), "dg": [], "status_lines": Counter(),
            "pg_to_px": [], "not_in_list": [], "no_pol": [], "layout_warn": [],
            "names": {"changed": [], "same": [], "transit": [], "differ": []}, "transit_ctry": [], "transit_no_ctry": [], "cleared": []}
     cur = None
@@ -161,7 +175,8 @@ def change_status(mman: Path, lst: Path, out: Path, shed_yes: str, shed_no: str)
                 rep["not_in_list"].append(bl)
                 cur = None
                 continue
-            st, pol = cfg[base]
+            st, pol, dg = cfg[base]
+            dg = dg or bool(DG_RE.search(line[3302:]))
             cur = st
             if line[COL_PORT:COL_PORT + 5].strip() == "" or line[COL_POL:COL_COPY].strip():
                 rep["layout_warn"].append(bl)
@@ -171,7 +186,12 @@ def change_status(mman: Path, lst: Path, out: Path, shed_yes: str, shed_no: str)
             else:
                 rep["no_pol"].append(bl)
             line = set_at(line, COL_COPY, line[COL_PORT:COL_PORT + 5])
-            line = set_at(line, COL_SHED, shed_yes if st else shed_no)
+            port = line[COL_PORT:COL_PORT + 5]
+            sh = PORT_SHED.get(port) or (SHED_LCH_DG if port == "THLCH" and dg else (shed_yes if st else shed_no))
+            line = set_at(line, COL_SHED, sh)
+            rep["sheds"][f"{sh} ({port})"] += 1
+            if dg:
+                rep["dg"].append(bl)
             m = UNIT_RE.search(line)
             if m:
                 line = line[:m.start()] + m.group(1) + "PX" + m.group(2) + line[m.end():]
@@ -215,7 +235,9 @@ def find_inputs(folder: Path):
     if len(txts) != 1 or len(lists) != 1:
         raise SystemExit(f"ERROR: need exactly 1 MMAN .txt and 1 list file in {inp}; "
                          f"found txt={[t.name for t in txts]} list={[l.name for l in lists]}")
-    return txts[0], lists[0], inp / "MMAN_EDI.txt"
+    out_dir = folder / "output"   # result goes to output/, next to input/
+    out_dir.mkdir(exist_ok=True)
+    return txts[0], lists[0], out_dir / "MMAN_EDI.txt"
 
 
 def main():
@@ -240,11 +262,10 @@ def main():
     rep = change_status(mman, lst, out, a.shed_yes, a.shed_no)
 
     print(f"MMAN : {mman}\nLIST : {lst}\nOUT  : {out}")
-    if a.shed_yes == a.shed_no:
-        print(f"B/L lines edited : {rep['bl_lines']}  (shed {a.shed_yes} for every B/L)")
-    else:
-        print(f"B/L lines edited : {rep['bl_lines']}  (shed {a.shed_yes}: {len(rep['shed_yes'])}, "
-              f"shed {a.shed_no}: {len(rep['shed_no'])})")
+    print(f"B/L lines edited : {rep['bl_lines']}")
+    print("SHED             : " + ", ".join(f"{k} x{v}" for k, v in sorted(rep["sheds"].items())))
+    if rep["dg"]:
+        print(f"DG B/L           : {rep['dg']}")
     print("Status set       : " + (", ".join(f"{k.strip()!r} x{v}" for k, v in rep["status_lines"].items()) or "none"))
     print(f"PG -> PX         : {rep['pg_to_px'] or 'none'}")
     n = rep["names"]
@@ -256,7 +277,7 @@ def main():
     if rep["transit_no_ctry"]:
         print(f"WARNING TRANSIT without a known destination country (TH kept): {rep['transit_no_ctry']}")
     if n["differ"]:
-        print(f"WARNING consignee name is not the notify name (kept, check): {n['differ']}")
+        print(f"WARNING no name at col 1765 / notify name (kept, check): {n['differ']}")
     for key, label in (("not_in_list", "B/L NOT in list (untouched)"), ("no_pol", "B/L without POL"),
                        ("layout_warn", "Layout warning (check columns)")):
         if rep[key]:

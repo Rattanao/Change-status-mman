@@ -157,11 +157,11 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
         <li>col 36-40 = POL (คอลัมน์ C)</li>
         <li>col 41-45 = THBKK (เหมือนข้อ 3 เสมอ)</li>
         <li>col 46-50 = THBKK ตามต้นฉบับ</li>
-        <li>col 51-54 = Shed: 0145 ถ้า B/L มี Status / 0122 ที่เหลือ</li>
+        <li>col 51-54 = Shed ล็อคตามท่าต้นฉบับ: BMT 0110 · SCT 0302 · LKR 0332 · UCT 0113 · LCH ที่เป็น DG (มี UN/CLASS) 2826 · BKK และ LCH อื่นๆ ตามช่อง SHED NO. (0145 ถ้า B/L มี Status / 0122 ที่เหลือ · ช่องขวาว่าง = ใช้ช่องซ้าย)</li>
         <li>col 844-845 = อักษร 2 ตัวแรกของ POL (แทน TH)</li>
         <li>บรรทัดตู้ = Status จากคอลัมน์ B (เช่น 8&nbsp;&nbsp;N → 9&nbsp;&nbsp;N) ว่าง = คงเดิม</li>
         <li>หน่วยหีบห่อ PG → PX ทุก B/L · ตัวอักษร O หน้า description คงเดิม (ยกเว้น TRANSIT/TRANSHIPMENT ตามข้อด้านล่าง)</li>
-        <li>ชื่อ consignee (col 881, 974) และชื่อ notify (col 1672) = ชื่อที่ col 1765 เว้นวรรค 1 เคาะเท่านั้น ยกเว้น B/L TRANSIT/TRANSHIPMENT หรือชื่อ consignee ไม่ตรงกับ notify ให้คงเดิม</li>
+        <li>ชื่อ consignee (col 881, 974) และชื่อ notify (col 1672) = ชื่อที่ col 1765 เสมอ เว้นวรรค 1 เคาะเท่านั้น (ทั้ง BKK และ LCH) ยกเว้น B/L TRANSIT/TRANSHIPMENT ห้ามแก้ คงเดิม</li>
         <li>B/L TRANSIT/TRANSHIPMENT: col 1670-1671 (TH หน้าชื่อ notify) = ประเทศปลายทาง LA=LAO · MM=MYANMAR · KH=CAMBODIA · CN=CHINA · PG=PAPUA NEW GUINEA · MY=MALAYSIA</li>
         <li>ทุก B/L ยกเว้น TRANSIT/TRANSHIPMENT: ลบเลขภาษี notify (col 1742-1754) และที่อยู่ consignee (col 1416-1669) / notify (col 2207-2460) · เลขภาษี consignee และรหัสสาขาคงไว้</li>
         <li>B/L TRANSIT/TRANSHIPMENT: col 3804 (ตัวอักษรหน้า description) TRANSIT = 7 · TRANSIT ไป LAOS = ตาม "CARGO MOVEMENT = L / 7" ใน MMAN (ไม่มี = 7) · TRANSHIPMENT = 3 · B/L อื่น O คงเดิม</li>
@@ -202,6 +202,9 @@ const words = t => t.trim().split(/\s+/).filter(Boolean).join(" ");
 const setAt = (t, pos, v) => t.slice(0, pos) + v + t.slice(pos + v.length);
 
 // returns [line, result]: changed / same / transit (kept) / differ (consignee is not the notify name, kept)
+// PORT-locked SHED (col 46-50 original port); THLCH with DG (UN/CLASS) = 2826; THBKK / other THLCH = SHED NO. boxes
+const PORT_SHED = { THBMT: "0110", THSCT: "0302", THLKR: "0332", THUCT: "0113" }, SHED_LCH_DG = "2826";
+const DG_RE = /\bUN\s?(?:NO\.?\s?)?\d{4}\b|\bIMO\b|\bIMDG\b|\bCLASS\s?\d/i;
 function fixNames(line) {
   const old = line.slice(NAME.C_NAME, NAME.C_NAME + NAME.W).trimEnd();
   if (!old) return [line, "same"];
@@ -210,15 +213,20 @@ function fixNames(line) {
     line = setAt(line, MOVE, transitMove(line, c));
     return [c ? setAt(line, N_CTRY, c) : line, "transit"];
   }
-  const target = words(old), full = line.slice(NAME.N_FULL, NAME.N_FULL + NAME.W_FULL);
-  let nw = null;
-  for (const m of full.matchAll(/\S+/g)) {
-    const w = words(full.slice(0, m.index + m[0].length));
-    if (w === target) { nw = full.slice(0, m.index + m[0].length); break; }
-    if (w.length >= target.length) break;
-  }
-  if (nw === null) return [line, "differ"];
-  nw = words(nw);
+  // always the name at col 1765 (arrow): the part matching the consignee words, else the notify name words
+  const full = line.slice(NAME.N_FULL, NAME.N_FULL + NAME.W_FULL);
+  const prefix = target => {
+    for (const m of full.matchAll(/\S+/g)) {
+      const w = words(full.slice(0, m.index + m[0].length));
+      if (w === target) return full.slice(0, m.index + m[0].length);
+      if (w.length >= target.length) return null;
+    }
+    return null;
+  };
+  const notify = words(line.slice(NAME.N_NAME, NAME.N_NAME + NAME.W));
+  let nw = prefix(words(old)) || (notify ? prefix(notify) : null) || notify;
+  if (!nw) return [line, "differ"];
+  nw = words(nw).slice(0, NAME.W);
   let out = setAt(line, NAME.C_NAME, nw.padEnd(NAME.W));
   out = setAt(out, NAME.N_NAME, nw.padEnd(NAME.W));
   const field = out.slice(NAME.C_FULL, NAME.C_FULL + NAME.W_FULL);
@@ -256,13 +264,14 @@ bindDrop("dropList", "inList", "fnList", async f => {
   const head = (rows[0] || []).slice(0, 3).map(key);
   const find = p => head.findIndex(h => h.startsWith(p));
   let ci = { bl: find("bl"), st: find("status"), pol: find("pol") };
+  const dgCol = (rows[0] || []).map(key).indexOf("dg");  // SUR form may have a DG column ("DG:3  UN:1245")
   if (Object.values(ci).some(i => i < 0)) ci = { bl: 0, st: 1, pol: 2 };
   const cfg = {};
   rows.slice(1).forEach(r => {
     const bl = String(r[ci.bl] || "").trim();
     if (!bl) return;
     const st = normStatus(String(r[ci.st] || ""));
-    cfg[bl] = { status: st, pol: String(r[ci.pol] || "").trim().toUpperCase() };
+    cfg[bl] = { status: st, pol: String(r[ci.pol] || "").trim().toUpperCase(), dg: dgCol >= 0 && String(r[dgCol] || "").trim() !== "" };
   });
   if (!Object.keys(cfg).length) throw new Error("ไม่พบข้อมูลในคอลัมน์ A-C");
   listRows = cfg;
@@ -325,7 +334,7 @@ function run() {
   // ช่อง "อื่น" ว่าง = ใช้ SHED NO. ช่องซ้ายกับทุก B/L (เช่นงาน LCH ที่ไม่มี Status)
   const yes = $("shedYes").value.trim(), no = $("shedNo").value.trim() || yes;
   const shedYes = yes.padEnd(4).slice(0, 4), shedNo = no.padEnd(4).slice(0, 4);
-  const rep = { bl: [], statusCount: {}, pg: [], notInList: [], noPol: [], layout: [], cut: cutInfo, transitCtry: [], transitNoCtry: [], cleared: [],
+  const rep = { bl: [], statusCount: {}, pg: [], notInList: [], noPol: [], layout: [], cut: cutInfo, sheds: {}, dg: [], transitCtry: [], transitNoCtry: [], cleared: [],
                 names: { changed: [], same: [], transit: [], differ: [] } };
   const lines = [];
   let cur = null, start = 0;
@@ -346,7 +355,11 @@ function run() {
       if (c.pol) { put(out, s + COL.POL, c.pol.padEnd(5).slice(0, 5)); put(out, s + COL.CTRY, c.pol.slice(0, 2)); }
       else rep.noPol.push(bl);
       put(out, s + COL.COPY, str(src, s + COL.PORT, s + COL.PORT + 5));
-      put(out, s + COL.SHED, c.status ? shedYes : shedNo);
+      const port = str(src, s + COL.PORT, s + COL.PORT + 5), dg = !!c.dg || DG_RE.test(str(src, s + 3302, e));
+      const sh = PORT_SHED[port] || (port === "THLCH" && dg ? SHED_LCH_DG : (c.status ? shedYes : shedNo));
+      put(out, s + COL.SHED, sh);
+      rep.sheds[`${sh} (${port})`] = (rep.sheds[`${sh} (${port})`] || 0) + 1;
+      if (dg) rep.dg.push(bl);
       const m = /\d{11}KGM\d{8}PG\d{11}MTQ/.exec(str(src, s, e));
       if (m) { put(out, s + m.index + 22, "PX"); rep.pg.push(bl); }
       if (e - s >= NAME.N_FULL + NAME.W_FULL) {
@@ -360,7 +373,7 @@ function run() {
         }
         if (res === "transit") { const c = nl.slice(N_CTRY, N_CTRY + 2); if (c !== "TH") rep.transitCtry.push(`${bl}=${c} (${nl[MOVE]})`); else rep.transitNoCtry.push(bl); }
       }
-      rep.bl.push({ bl, status: c.status, pol: c.pol, shed: c.status ? shedYes : shedNo });
+      rep.bl.push({ bl, status: c.status, pol: c.pol, shed: sh, port, dg });
       if (previews.length < 6) previews.push([s, Math.min(e, s + 70)]);
     } else if (cur && /^[A-Z]{4}\d{7} /.test(head)) {
       put(out, s + COL.STATUS, cur);
@@ -380,7 +393,7 @@ function render(rep, changed, previews, shedYes, shedNo) {
   const statusTxt = Object.entries(rep.statusCount).map(([k, v]) => `${k.trim()} ×${v}`).join(", ") || "ไม่มี";
   $("stats").innerHTML = [
     [rep.bl.length, "B/L ที่แก้"],
-    ...(shedYes === shedNo ? [[rep.bl.length, `Shed ${shedYes} (ทุก B/L)`]] : [[nYes, `Shed ${shedYes}`], [rep.bl.length - nYes, `Shed ${shedNo}`]]),
+    ...Object.entries(rep.sheds).sort().map(([k, v]) => [v, `Shed ${k}`]), [rep.dg.length, "B/L DG"],
     [Object.values(rep.statusCount).reduce((a, b) => a + b, 0), "บรรทัดตู้ที่เปลี่ยน Status"], [rep.pg.length, "PG → PX"], [changed, "ไบต์ที่เปลี่ยน"]
   ].map(([n, l]) => `<div class="stat"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join("");
   const cutTxt = rep.cut ? `ตัดออก ${rep.cut.removed} บรรทัด (${rep.cut.total} → ${rep.cut.kept} บรรทัด) · ขนาดไฟล์ ${outBytes.length.toLocaleString()} ไบต์`
@@ -392,11 +405,11 @@ function render(rep, changed, previews, shedYes, shedNo) {
   if (rep.names.transit.length) msgs += `<div class="warn">B/L TRANSIT/TRANSHIPMENT ชื่อคงเดิม: ${rep.names.transit.join(", ")}${rep.transitCtry.length ? " · ประเทศปลายทาง col 1670 (และรหัสหน้า description): " + rep.transitCtry.join(", ") : ""}</div>`;
   if (rep.cleared.length) msgs += `<div class="okmsg">ลบเลขภาษี notify และที่อยู่ consignee / notify: ${rep.cleared.length} B/L</div>`;
   if (rep.transitNoCtry.length) msgs += `<div class="warn">B/L TRANSIT ไม่พบประเทศปลายทาง (คง TH ไว้ ตรวจสอบ): ${rep.transitNoCtry.join(", ")}</div>`;
-  if (rep.names.differ.length) msgs += `<div class="warn">ชื่อ consignee ไม่ตรงกับ notify (คงเดิม ตรวจสอบ): ${rep.names.differ.join(", ")}</div>`;
+  if (rep.names.differ.length) msgs += `<div class="warn">ไม่พบชื่อที่ col 1765 / ชื่อ notify (คงเดิม ตรวจสอบ): ${rep.names.differ.join(", ")}</div>`;
   if (rep.layout.length) msgs += `<div class="warn">ตำแหน่งคอลัมน์ผิดปกติ ตรวจสอบก่อนใช้: ${rep.layout.join(", ")}</div>`;
   $("msgs").innerHTML = msgs;
-  $("tbl").innerHTML = "<tr><th>B/L No.</th><th>POL</th><th>Status</th><th>Shed</th></tr>" +
-    rep.bl.map(b => `<tr><td class="mono">${b.bl}</td><td class="mono">${esc(b.pol)}</td><td class="mono">${b.status ? esc(b.status).replace(/ /g, "&nbsp;") : "—"}</td><td class="mono">${b.shed}</td></tr>`).join("");
+  $("tbl").innerHTML = "<tr><th>B/L No.</th><th>POL</th><th>ท่า</th><th>Status</th><th>DG</th><th>Shed</th></tr>" +
+    rep.bl.map(b => `<tr><td class="mono">${b.bl}</td><td class="mono">${esc(b.pol)}</td><td class="mono">${esc(b.port)}</td><td class="mono">${b.status ? esc(b.status).replace(/ /g, "&nbsp;") : "—"}</td><td class="mono">${b.dg ? "DG" : ""}</td><td class="mono">${esc(b.shed)}</td></tr>`).join("");
   $("preview").innerHTML = previews.map(([s, e]) => {
     let h = ""; for (let i = s; i < e; i++) { const ch = esc(String.fromCharCode(outBytes[i])); h += cutBuf[i] !== outBytes[i] ? `<mark>${ch}</mark>` : ch; }
     return h;

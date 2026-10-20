@@ -4,3 +4,4 @@ Input/
 MMAN_EDI.txt
 *.txt
 !requirements.txt
+output/

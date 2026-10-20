@@ -1,5 +1,5 @@
 @echo off
-rem Change status: MMAN_*.txt + status list (.xls/.xlsx/.csv) in input\  ->  input\MMAN_EDI.txt
+rem Change status: MMAN_*.txt + status list (.xls/.xlsx/.csv) in input\  ->  output\MMAN_EDI.txt
 chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
@@ -36,6 +36,6 @@ if errorlevel 1 (
   echo [ERROR] ทำไม่สำเร็จ - อ่านข้อความด้านบน
 ) else (
   echo.
-  echo เสร็จแล้ว: เปิดไฟล์ input\MMAN_EDI.txt
+  echo เสร็จแล้ว: เปิดไฟล์ output\MMAN_EDI.txt
 )
 pause

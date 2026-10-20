@@ -36,12 +36,12 @@ broke CRLF).
 | 1 | col 35-39 | POL (column C) |
 | 2 | col 40-44 | copy of #3 (always the same as THBKK) |
 | 3 | col 45-49 | THBKK from the original, unchanged |
-| 4 | col 50-53 | shed: `0145` if the B/L has a Status, otherwise `0122` (`--shed-yes/--shed-no` to change; `--shed X` = one code for every B/L, e.g. LCH jobs with no Status — ask the user which code) |
+| 4 | col 50-53 | shed **locked by the original port**: THBMT 0110, THSCT 0302, THLKR 0332, THUCT 0113, THLCH with DG (UN/CLASS in the description or a DG column in the list) 2826. THBKK and other THLCH: `0145` if the B/L has a Status, otherwise `0122` (`--shed-yes/--shed-no` to change; `--shed X` = one code for every B/L, e.g. LCH jobs with no Status — ask the user which code) |
 | 5 | col 843-844 | first 2 letters of POL (`KR`), replacing `TH` |
 | 6 | container line col 17 | Status from column B (`8  N` → `9  N`) |
 | – | package unit | `PG` → `PX` on every B/L |
 
-| 7 | col 880 / 973 / 1671 | consignee name, consignee name+address, notify name = the name at col 1764, **single spaces only** (kept on TRANSIT/TRANSHIPMENT B/Ls, or when the consignee is not the notify party) |
+| 7 | col 880 / 973 / 1671 | consignee name, consignee name+address, notify name = **always** the name at col 1764, **single spaces only**, for BKK and LCH (the part of 1764 matching the consignee words, else the notify-name words). Only TRANSIT/TRANSHIPMENT B/Ls keep their names |
 | 8 | col 1669-1670 | TRANSIT/TRANSHIPMENT: TH before the notify name = destination country (LA, MM, KH, CN, PG, MY) |
 | 9 | col 3803 | TRANSIT/TRANSHIPMENT only: TRANSIT = 7, TRANSIT to LAOS = CARGO MOVEMENT L/7 in the B/L (7 if none), TRANSHIPMENT = 3 |
 | 10 | col 1741 / 1415 / 2206 | every B/L except TRANSIT/TRANSHIPMENT: blank the notify tax ID and the consignee / notify addresses |
@@ -55,7 +55,7 @@ Rules 7-10 are the same code as the 5-mman-vnsgn site. **Otherwise leave the let
    PYTHONIOENCODING=utf-8 python "<skill dir>/scripts/change_status.py" "<folder containing Input>"
    ```
    or specify the files: `change_status.py <mman.txt> <list.xls> [-o out.txt]`.
-   The output is always `MMAN_EDI.txt` **inside the `Input/` folder**. The input files are never modified.
+   The output is always `MMAN_EDI.txt` **in the `output/` folder** (created next to `input/`). The input files are never modified.
    Requires `pandas`, `xlrd` (.xls) and `openpyxl` (.xlsx).
 2. Report to the user in Thai: how many B/Ls, 0145/0122 counts, how many status lines changed and to what, which B/Ls went PG→PX, and that the file size matches the original.
 3. If the script prints a `WARNING` (B/L not in the list, B/L without POL, unexpected layout), tell the user and ask. Don't guess.
