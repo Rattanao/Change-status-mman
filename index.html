@@ -161,7 +161,7 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
         <li>col 844-845 = อักษร 2 ตัวแรกของ POL (แทน TH)</li>
         <li>บรรทัดตู้ = Status จากคอลัมน์ B (เช่น 8&nbsp;&nbsp;N → 9&nbsp;&nbsp;N) ว่าง = คงเดิม</li>
         <li>หน่วยหีบห่อ PG → PX ทุก B/L · ตัวอักษร O หน้า description คงเดิม (ยกเว้น TRANSIT/TRANSHIPMENT ตามข้อด้านล่าง)</li>
-        <li>ชื่อ consignee (col 881, 974) และชื่อ notify (col 1672) = ชื่อที่ col 1765 เสมอ เว้นวรรค 1 เคาะเท่านั้น (ทั้ง BKK และ LCH) ยกเว้น B/L TRANSIT/TRANSHIPMENT ห้ามแก้ คงเดิม</li>
+        <li>ชื่อ consignee (col 881, 974) และชื่อ notify (col 1765) = ตามชื่อ notify ที่ col 1672 (ตำแหน่ง TH+ชื่อ) เสมอ เว้นวรรค 1 เคาะเท่านั้น ทุก B/L (BKK และ LCH) · ที่ col 974 และ 1765 แก้เฉพาะส่วนชื่อ ที่อยู่ต่อท้ายคงไว้ · ยกเว้น B/L TRANSIT/TRANSHIPMENT ห้ามแก้ คงเดิม</li>
         <li>B/L TRANSIT/TRANSHIPMENT: col 1670-1671 (TH หน้าชื่อ notify) = ประเทศปลายทาง LA=LAO · MM=MYANMAR · KH=CAMBODIA · CN=CHINA · PG=PAPUA NEW GUINEA · MY=MALAYSIA</li>
         <li>ทุก B/L ยกเว้น TRANSIT/TRANSHIPMENT: ลบเลขภาษี notify (col 1742-1754) และที่อยู่ consignee (col 1416-1669) / notify (col 2207-2460) · เลขภาษี consignee และรหัสสาขาคงไว้</li>
         <li>B/L TRANSIT/TRANSHIPMENT: col 3804 (ตัวอักษรหน้า description) TRANSIT = 7 · TRANSIT ไป LAOS = ตาม "CARGO MOVEMENT = L / 7" ใน MMAN (ไม่มี = 7) · TRANSHIPMENT = 3 · B/L อื่น O คงเดิม</li>
@@ -201,21 +201,23 @@ function destCountry(line) {
 const words = t => t.trim().split(/\s+/).filter(Boolean).join(" ");
 const setAt = (t, pos, v) => t.slice(0, pos) + v + t.slice(pos + v.length);
 
-// returns [line, result]: changed / same / transit (kept) / differ (consignee is not the notify name, kept)
 // PORT-locked SHED (col 46-50 original port); THLCH with DG (UN/CLASS) = 2826; THBKK / other THLCH = SHED NO. boxes
 const PORT_SHED = { THBMT: "0110", THSCT: "0302", THLKR: "0332", THUCT: "0113" }, SHED_LCH_DG = "2826";
 const DG_RE = /\bUN\s?(?:NO\.?\s?)?\d{4}\b|\bIMO\b|\bIMDG\b|\bCLASS\s?\d/i;
+// Master name = the notify name at col 1672 (after "TH"), single spaces only -> consignee name (881),
+// name part of consignee name+address (974) and of notify name+address (1765). TRANSIT/TRANSHIPMENT: names kept.
+// returns [line, result]: changed / same / transit (kept) / differ (no notify name and no name at 1765, kept)
 function fixNames(line) {
-  const old = line.slice(NAME.C_NAME, NAME.C_NAME + NAME.W).trimEnd();
-  if (!old) return [line, "same"];
   if (TRANSIT_RE.test(line)) {
     const c = destCountry(line);
     line = setAt(line, MOVE, transitMove(line, c));
     return [c ? setAt(line, N_CTRY, c) : line, "transit"];
   }
-  // always the name at col 1765 (arrow): the part matching the consignee words, else the notify name words
-  const full = line.slice(NAME.N_FULL, NAME.N_FULL + NAME.W_FULL);
-  const prefix = target => {
+  const oldC = line.slice(NAME.C_NAME, NAME.C_NAME + NAME.W).trimEnd();
+  const oldN = line.slice(NAME.N_NAME, NAME.N_NAME + NAME.W).trimEnd();
+  const nFull = line.slice(NAME.N_FULL, NAME.N_FULL + NAME.W_FULL);
+  const prefix = (full, target) => {
+    if (!target) return null;
     for (const m of full.matchAll(/\S+/g)) {
       const w = words(full.slice(0, m.index + m[0].length));
       if (w === target) return full.slice(0, m.index + m[0].length);
@@ -223,16 +225,23 @@ function fixNames(line) {
     }
     return null;
   };
-  const notify = words(line.slice(NAME.N_NAME, NAME.N_NAME + NAME.W));
-  let nw = prefix(words(old)) || (notify ? prefix(notify) : null) || notify;
+  let nw = words(oldN);
+  if (!nw) nw = words(prefix(nFull, words(oldC)) || "");  // no notify name: the name written at 1765
   if (!nw) return [line, "differ"];
-  nw = words(nw).slice(0, NAME.W);
+  nw = nw.slice(0, NAME.W);
   let out = setAt(line, NAME.C_NAME, nw.padEnd(NAME.W));
   out = setAt(out, NAME.N_NAME, nw.padEnd(NAME.W));
-  const field = out.slice(NAME.C_FULL, NAME.C_FULL + NAME.W_FULL);
-  if (field.startsWith(old)) {
-    const nf = nw + field.slice(old.length);
+  const cFull = out.slice(NAME.C_FULL, NAME.C_FULL + NAME.W_FULL);
+  let part = oldC ? prefix(cFull, words(oldC)) : null;
+  if (part !== null) {
+    const nf = nw + cFull.slice(part.length);
     if (!nf.slice(NAME.W_FULL).trim()) out = setAt(out, NAME.C_FULL, nf.slice(0, NAME.W_FULL).padEnd(NAME.W_FULL));
+  }
+  part = prefix(nFull, words(oldC)) ?? prefix(nFull, words(oldN));
+  if (part === null && !nFull.trim()) part = "";
+  if (part !== null) {
+    const nf = nw + nFull.slice(part.length);
+    if (!nf.slice(NAME.W_FULL).trim()) out = setAt(out, NAME.N_FULL, nf.slice(0, NAME.W_FULL).padEnd(NAME.W_FULL));
   }
   return [out, out === line ? "same" : "changed"];
 }
@@ -407,11 +416,11 @@ function render(rep, changed, previews, shedYes, shedNo) {
   if (rep.notInList.length) msgs += `<div class="warn">B/L ไม่อยู่ในรายการ (ไม่ได้แก้): ${rep.notInList.join(", ")}</div>`;
   if (rep.noPol.length) msgs += `<div class="warn">B/L ไม่มี POL: ${rep.noPol.join(", ")}</div>`;
   msgs += `<div class="okmsg">ท่าเรือ col 41-45: ${esc(rep.port || "-")}</div>`;
-  msgs += `<div class="okmsg">ชื่อ consignee / notify จาก col 1765 (เว้นวรรค 1 เคาะ): แก้ ${rep.names.changed.length} B/L${rep.names.changed.length ? " (" + rep.names.changed.join(", ") + ")" : ""} · ตรงอยู่แล้ว ${rep.names.same.length} B/L</div>`;
+  msgs += `<div class="okmsg">ชื่อ consignee / notify ตาม col 1672 (เว้นวรรค 1 เคาะ): แก้ ${rep.names.changed.length} B/L${rep.names.changed.length ? " (" + rep.names.changed.join(", ") + ")" : ""} · ตรงอยู่แล้ว ${rep.names.same.length} B/L</div>`;
   if (rep.names.transit.length) msgs += `<div class="warn">B/L TRANSIT/TRANSHIPMENT ชื่อคงเดิม: ${rep.names.transit.join(", ")}${rep.transitCtry.length ? " · ประเทศปลายทาง col 1670 (และรหัสหน้า description): " + rep.transitCtry.join(", ") : ""}</div>`;
   if (rep.cleared.length) msgs += `<div class="okmsg">ลบเลขภาษี notify และที่อยู่ consignee / notify: ${rep.cleared.length} B/L</div>`;
   if (rep.transitNoCtry.length) msgs += `<div class="warn">B/L TRANSIT ไม่พบประเทศปลายทาง (คง TH ไว้ ตรวจสอบ): ${rep.transitNoCtry.join(", ")}</div>`;
-  if (rep.names.differ.length) msgs += `<div class="warn">ไม่พบชื่อที่ col 1765 / ชื่อ notify (คงเดิม ตรวจสอบ): ${rep.names.differ.join(", ")}</div>`;
+  if (rep.names.differ.length) msgs += `<div class="warn">ไม่มีชื่อ notify ที่ col 1672 (คงเดิม ตรวจสอบ): ${rep.names.differ.join(", ")}</div>`;
   if (rep.layout.length) msgs += `<div class="warn">ตำแหน่งคอลัมน์ผิดปกติ ตรวจสอบก่อนใช้: ${rep.layout.join(", ")}</div>`;
   $("msgs").innerHTML = msgs;
   $("tbl").innerHTML = "<tr><th>B/L No.</th><th>POL</th><th>ท่า</th><th>Status</th><th>DG</th><th>Shed</th></tr>" +

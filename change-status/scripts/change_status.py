@@ -28,8 +28,8 @@ COL_STATUS = 17          # 6. status on container lines ("8  N" -> "9  N")
 BL_RE = re.compile(r"^HASL")
 CNTR_RE = re.compile(r"^[A-Z]{4}\d{7} ")
 UNIT_RE = re.compile(r"(\d{11}KGM\d{8})PG(\d{11}MTQ)")
-# 7. names: consignee name (880), consignee name+address (973) and notify name (1671)
-#    take the name written at the notify name+address field (1764), single spaces only
+# 7. names: master = the notify name at col 1671 (after "TH"), single spaces only; written to the consignee
+#    name (880) and the name part of the consignee (973) and notify (1764) name+address fields
 COL_C_NAME, COL_C_FULL, COL_N_NAME, COL_N_FULL = 880, 973, 1671, 1764
 W_NAME, W_FULL = 70, 696   # name = 70 chars (880-949); 950-972 holds tax ID + branch, never touched
 TRANSIT_RE = re.compile(r"TRANSIT\b|\bTRANS[\s-]?S?HIP", re.I)   # also "INTRANSIT"
@@ -75,20 +75,22 @@ def transit_move(line: str, dest):
 
 
 def fix_names(line: str):
-    """Copy the name at col 1764 into cols 880, 973 and 1671 with single spaces only.
-    Returns (line, result): 'changed', 'same', 'transit' (TRANSIT/TRANSHIPMENT B/L, names kept)
-    or 'differ' (consignee is not the notify party, kept)."""
-    old = line[COL_C_NAME:COL_C_NAME + W_NAME].rstrip()
-    if not old:
-        return line, "same"
+    """Master name = the notify name at col 1671 (after "TH"), single spaces only. It is written to the
+    consignee name (880), the name part of the consignee name+address (973) and the name part of the
+    notify name+address (1764). Returns (line, result): 'changed', 'same', 'transit' (TRANSIT/TRANSHIPMENT
+    B/L, names kept) or 'differ' (no notify name and no name at 1764, kept)."""
     if TRANSIT_RE.search(line):
         code = dest_country(line)
         line = set_at(line, COL_MOVE, transit_move(line, code))
         return (set_at(line, COL_N_CTRY, code) if code else line), "transit"
-    full = line[COL_N_FULL:COL_N_FULL + W_FULL]
+    old_c = line[COL_C_NAME:COL_C_NAME + W_NAME].rstrip()
+    old_n = line[COL_N_NAME:COL_N_NAME + W_NAME].rstrip()
+    n_full = line[COL_N_FULL:COL_N_FULL + W_FULL]
 
-    def prefix(target):
-        """The start of the 1764 field whose words are `target` (the name before the address)."""
+    def prefix(full, target):
+        """The start of `full` whose words are `target` (the name before an address), or None."""
+        if not target:
+            return None
         for m in re.finditer(r"\S+", full):
             words = " ".join(full[:m.end()].split())
             if words == target:
@@ -97,18 +99,29 @@ def fix_names(line: str):
                 return None
         return None
 
-    notify = " ".join(line[COL_N_NAME:COL_N_NAME + W_NAME].split())
-    new = prefix(" ".join(old.split())) or (prefix(notify) if notify else None) or notify
+    new = " ".join(old_n.split())
+    if not new:  # no notify name: fall back to the name written at 1764
+        new = " ".join((prefix(n_full, " ".join(old_c.split())) or "").split())
     if not new:
         return line, "differ"
-    new = " ".join(new.split())[:W_NAME]
+    new = new[:W_NAME]
     out = set_at(line, COL_C_NAME, new.ljust(W_NAME))
     out = set_at(out, COL_N_NAME, new.ljust(W_NAME))
-    field = out[COL_C_FULL:COL_C_FULL + W_FULL]
-    if field.startswith(old):  # the consignee name opens its name+address field
-        nf = new + field[len(old):]
+    # name part of the consignee name+address (973): it opens with the old consignee name
+    c_full = out[COL_C_FULL:COL_C_FULL + W_FULL]
+    old_part = prefix(c_full, " ".join(old_c.split())) if old_c else None
+    if old_part is not None:
+        nf = new + c_full[len(old_part):]
         if not nf[W_FULL:].strip():
             out = set_at(out, COL_C_FULL, nf[:W_FULL].ljust(W_FULL))
+    # name part of the notify name+address (1764): the old consignee or the old notify name
+    old_part = prefix(n_full, " ".join(old_c.split())) or prefix(n_full, " ".join(old_n.split()))
+    if old_part is None and not n_full.strip():
+        old_part = ""
+    if old_part is not None:
+        nf = new + n_full[len(old_part):]
+        if not nf[W_FULL:].strip():
+            out = set_at(out, COL_N_FULL, nf[:W_FULL].ljust(W_FULL))
     return out, "changed" if out != line else "same"
 
 
@@ -271,7 +284,7 @@ def main():
     print("Status set       : " + (", ".join(f"{k.strip()!r} x{v}" for k, v in rep["status_lines"].items()) or "none"))
     print(f"PG -> PX         : {rep['pg_to_px'] or 'none'}")
     n = rep["names"]
-    print(f"Names (col 1765) : changed {len(n['changed'])}, already single-spaced {len(n['same'])}")
+    print(f"Names (col 1672) : changed {len(n['changed'])}, already single-spaced {len(n['same'])}")
     if n["transit"]:
         print(f"TRANSIT/TRANSHIP : names kept {n['transit']}  country/code: {rep['transit_ctry']}")
     print(f"Cleared notify tax ID + addresses: {len(rep['cleared'])} B/L")
@@ -279,7 +292,7 @@ def main():
     if rep["transit_no_ctry"]:
         print(f"WARNING TRANSIT without a known destination country (TH kept): {rep['transit_no_ctry']}")
     if n["differ"]:
-        print(f"WARNING no name at col 1765 / notify name (kept, check): {n['differ']}")
+        print(f"WARNING no notify name at col 1672 (kept, check): {n['differ']}")
     for key, label in (("not_in_list", "B/L NOT in list (untouched)"), ("no_pol", "B/L without POL"),
                        ("layout_warn", "Layout warning (check columns)")):
         if rep[key]:

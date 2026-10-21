@@ -41,7 +41,7 @@ broke CRLF).
 | 6 | container line col 17 | Status from column B (`8  N` → `9  N`) |
 | – | package unit | `PG` → `PX` on every B/L |
 
-| 7 | col 880 / 973 / 1671 | consignee name, consignee name+address, notify name = **always** the name at col 1764, **single spaces only**, for BKK and LCH (the part of 1764 matching the consignee words, else the notify-name words). Only TRANSIT/TRANSHIPMENT B/Ls keep their names |
+| 7 | col 880 / 973 / 1764 | consignee name, name part of consignee name+address, name part of notify name+address = **always the notify name at col 1671 (after "TH")**, **single spaces only**, every B/L (BKK and LCH); addresses after the name stay. Only TRANSIT/TRANSHIPMENT B/Ls keep their names. (User rule 2026-10-21, e.g. 1671 `PETCHNARA -------` -> all name fields `PETCHNARA -------`) |
 | 8 | col 1669-1670 | TRANSIT/TRANSHIPMENT: TH before the notify name = destination country (LA, MM, KH, CN, PG, MY) |
 | 9 | col 3803 | TRANSIT/TRANSHIPMENT only: TRANSIT = 7, TRANSIT to LAOS = CARGO MOVEMENT L/7 in the B/L (7 if none), TRANSHIPMENT = 3 |
 | 10 | col 1741 / 1415 / 2206 | every B/L except TRANSIT/TRANSHIPMENT: blank the notify tax ID and the consignee / notify addresses |
