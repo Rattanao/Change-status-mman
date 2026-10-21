@@ -36,7 +36,7 @@ broke CRLF).
 | 1 | col 35-39 | POL (column C) |
 | 2 | col 40-44 | port of discharge = the port most B/Ls in the file have at col 45-49 (THBKK or THLCH), e.g. `CNTAOTHLCHTHLKR0332` |
 | 3 | col 45-49 | THBKK from the original, unchanged |
-| 4 | col 50-53 | shed **locked by the original port**: THBMT 0110, THSCT 0302, THLKR 0332, THUCT 0113, THLCH with DG (UN/CLASS in the description or a DG column in the list) 2826. THBKK and other THLCH: `0145` if the B/L has a Status, otherwise `0122` (`--shed-yes/--shed-no` to change; `--shed X` = one code for every B/L, e.g. LCH jobs with no Status — ask the user which code) |
+| 4 | col 50-53 | shed **locked by the original port**: THBMT 0110, THSCT 0302, THLKR 0332, THUCT 0113, THLCH with DG (UN/CLASS in the description or a DG column in the list) 2826, THBKK going to LAOS (destination country LA) 0124. THBKK and other THLCH: `0145` if the B/L has a Status, otherwise `0122` (`--shed-yes/--shed-no` to change; `--shed X` = one code for every B/L, e.g. LCH jobs with no Status — ask the user which code) |
 | 5 | col 843-844 | first 2 letters of POL (`KR`), replacing `TH` |
 | 6 | container line col 17 | Status from column B (`8  N` → `9  N`) |
 | – | package unit | `PG` → `PX` on every B/L |

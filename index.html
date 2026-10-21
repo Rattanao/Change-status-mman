@@ -157,7 +157,7 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
         <li>col 36-40 = POL (คอลัมน์ C)</li>
         <li>col 41-45 = ท่าเรือของ B/L ส่วนใหญ่ในไฟล์ (เช่น THBKK, THLCH) · เช่น CNTAO<b>THLCH</b>THLKR0332</li>
         <li>col 46-50 = ท่าเรือตามต้นฉบับ (THBKK, THLCH, THLKR, …) คงเดิม ห้ามแก้</li>
-        <li>col 51-54 = Shed ล็อคตามท่าต้นฉบับ: BMT 0110 · SCT 0302 · LKR 0332 · UCT 0113 · LCH ที่เป็น DG (มี UN/CLASS) 2826 · BKK และ LCH อื่นๆ ตามช่อง SHED NO. (0145 ถ้า B/L มี Status / 0122 ที่เหลือ · ช่องขวาว่าง = ใช้ช่องซ้าย)</li>
+        <li>col 51-54 = Shed ล็อคตามท่าต้นฉบับ: BMT 0110 · SCT 0302 · LKR 0332 · UCT 0113 · LCH ที่เป็น DG (มี UN/CLASS) 2826 · BKK ที่ไป LAOS 0124 · BKK และ LCH อื่นๆ ตามช่อง SHED NO. (0145 ถ้า B/L มี Status / 0122 ที่เหลือ · ช่องขวาว่าง = ใช้ช่องซ้าย)</li>
         <li>col 844-845 = อักษร 2 ตัวแรกของ POL (แทน TH)</li>
         <li>บรรทัดตู้ = Status จากคอลัมน์ B (เช่น 8&nbsp;&nbsp;N → 9&nbsp;&nbsp;N) ว่าง = คงเดิม</li>
         <li>หน่วยหีบห่อ PG → PX ทุก B/L · ตัวอักษร O หน้า description คงเดิม (ยกเว้น TRANSIT/TRANSHIPMENT ตามข้อด้านล่าง)</li>
@@ -202,7 +202,7 @@ const words = t => t.trim().split(/\s+/).filter(Boolean).join(" ");
 const setAt = (t, pos, v) => t.slice(0, pos) + v + t.slice(pos + v.length);
 
 // PORT-locked SHED (col 46-50 original port); THLCH with DG (UN/CLASS) = 2826; THBKK / other THLCH = SHED NO. boxes
-const PORT_SHED = { THBMT: "0110", THSCT: "0302", THLKR: "0332", THUCT: "0113" }, SHED_LCH_DG = "2826";
+const PORT_SHED = { THBMT: "0110", THSCT: "0302", THLKR: "0332", THUCT: "0113" }, SHED_LCH_DG = "2826", SHED_BKK_LAOS = "0124";  // THBKK B/L going to LAOS = 0124 every time
 const DG_RE = /\bUN\s?(?:NO\.?\s?)?\d{4}\b|\bIMO\b|\bIMDG\b|\bCLASS\s?\d/i;
 // Master name = the notify name at col 1672 (after "TH"), single spaces only -> consignee name (881),
 // name part of consignee name+address (974) and of notify name+address (1765). TRANSIT/TRANSHIPMENT: names kept.
@@ -370,7 +370,8 @@ function run() {
       else rep.noPol.push(bl);
       put(out, s + COL.COPY, portMain || str(src, s + COL.PORT, s + COL.PORT + 5));
       const port = str(src, s + COL.PORT, s + COL.PORT + 5), dg = !!c.dg || DG_RE.test(str(src, s + 3302, e));
-      const sh = PORT_SHED[port] || (port === "THLCH" && dg ? SHED_LCH_DG : (c.status ? shedYes : shedNo));
+      const sh = port === "THBKK" && destCountry(str(src, s, e)) === "LA" ? SHED_BKK_LAOS
+        : PORT_SHED[port] || (port === "THLCH" && dg ? SHED_LCH_DG : (c.status ? shedYes : shedNo));
       put(out, s + COL.SHED, sh);
       rep.sheds[`${sh} (${port})`] = (rep.sheds[`${sh} (${port})`] || 0) + 1;
       if (dg) rep.dg.push(bl);

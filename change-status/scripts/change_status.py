@@ -51,6 +51,7 @@ CLEAR = [(1741, 13), (1415, 254), (2206, 254)]   # notify tax ID, consignee addr
 #    THBKK and the other THLCH B/Ls use the SHED NO. given (0145 with Status / 0122 without)
 PORT_SHED = {"THBMT": "0110", "THSCT": "0302", "THLKR": "0332", "THUCT": "0113"}
 SHED_LCH_DG = "2826"
+SHED_BKK_LAOS = "0124"   # THBKK B/L going to LAOS (destination country LA) - every time
 DG_RE = re.compile(r"\bUN\s?(?:NO\.?\s?)?\d{4}\b|\bIMO\b|\bIMDG\b|\bCLASS\s?\d", re.I)
 
 
@@ -203,6 +204,8 @@ def change_status(mman: Path, lst: Path, out: Path, shed_yes: str, shed_no: str)
             line = set_at(line, COL_COPY, port_main or line[COL_PORT:COL_PORT + 5])
             port = line[COL_PORT:COL_PORT + 5]
             sh = PORT_SHED.get(port) or (SHED_LCH_DG if port == "THLCH" and dg else (shed_yes if st else shed_no))
+            if port == "THBKK" and dest_country(line) == "LA":
+                sh = SHED_BKK_LAOS
             line = set_at(line, COL_SHED, sh)
             rep["sheds"][f"{sh} ({port})"] += 1
             if dg:
