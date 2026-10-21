@@ -225,6 +225,7 @@ function fixNames(line) {
     }
     return null;
   };
+  const lead = full => (full.match(/^\s*\S+(?: \S+)*/) || [""])[0];  // name before the first double space
   let nw = words(oldN);
   if (!nw) nw = words(prefix(nFull, words(oldC)) || "");  // no notify name: the name written at 1765
   if (!nw) return [line, "differ"];
@@ -233,12 +234,13 @@ function fixNames(line) {
   out = setAt(out, NAME.N_NAME, nw.padEnd(NAME.W));
   const cFull = out.slice(NAME.C_FULL, NAME.C_FULL + NAME.W_FULL);
   let part = oldC ? prefix(cFull, words(oldC)) : null;
+  if (part === null && cFull.trim()) part = lead(cFull);  // a different name sits there: replace it anyway
   if (part !== null) {
     const nf = nw + cFull.slice(part.length);
     if (!nf.slice(NAME.W_FULL).trim()) out = setAt(out, NAME.C_FULL, nf.slice(0, NAME.W_FULL).padEnd(NAME.W_FULL));
   }
   part = prefix(nFull, words(oldC)) ?? prefix(nFull, words(oldN));
-  if (part === null && !nFull.trim()) part = "";
+  if (part === null) part = lead(nFull);  // a different name (or nothing) sits there: replace it anyway
   if (part !== null) {
     const nf = nw + nFull.slice(part.length);
     if (!nf.slice(NAME.W_FULL).trim()) out = setAt(out, NAME.N_FULL, nf.slice(0, NAME.W_FULL).padEnd(NAME.W_FULL));

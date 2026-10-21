@@ -100,6 +100,11 @@ def fix_names(line: str):
                 return None
         return None
 
+    def lead(full):
+        """Leading words up to the first double space (the name before an address), "" if blank."""
+        m = re.match(r"\s*\S+(?: \S+)*", full)
+        return m.group(0) if m else ""
+
     new = " ".join(old_n.split())
     if not new:  # no notify name: fall back to the name written at 1764
         new = " ".join((prefix(n_full, " ".join(old_c.split())) or "").split())
@@ -111,14 +116,16 @@ def fix_names(line: str):
     # name part of the consignee name+address (973): it opens with the old consignee name
     c_full = out[COL_C_FULL:COL_C_FULL + W_FULL]
     old_part = prefix(c_full, " ".join(old_c.split())) if old_c else None
+    if old_part is None and c_full.strip():
+        old_part = lead(c_full)  # a different name sits there: replace its name part anyway
     if old_part is not None:
         nf = new + c_full[len(old_part):]
         if not nf[W_FULL:].strip():
             out = set_at(out, COL_C_FULL, nf[:W_FULL].ljust(W_FULL))
     # name part of the notify name+address (1764): the old consignee or the old notify name
     old_part = prefix(n_full, " ".join(old_c.split())) or prefix(n_full, " ".join(old_n.split()))
-    if old_part is None and not n_full.strip():
-        old_part = ""
+    if old_part is None:
+        old_part = lead(n_full)  # a different name (or nothing) sits there: replace its name part anyway
     if old_part is not None:
         nf = new + n_full[len(old_part):]
         if not nf[W_FULL:].strip():
