@@ -46,9 +46,10 @@ main { max-width: 1200px; margin: 0 auto; padding: 24px 28px 60px; }
 @media (max-width: 640px) { header.bar, main { padding-left: 16px; padding-right: 16px; } }
 .card { background: var(--card); border-radius: 10px; padding: 24px 26px; margin-bottom: 18px;
   box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 14px rgba(0,0,0,.04); }
-.form { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr auto; gap: 18px; align-items: end; }
+.form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 18px; align-items: end; }
+.form.row2 { grid-template-columns: repeat(2, minmax(0, 380px)); margin-top: 18px; }
 .form > * { min-width: 0; }
-@media (max-width: 1000px) { .form { grid-template-columns: 1fr; } .form button { width: 100%; } }
+@media (max-width: 1000px) { .form, .form.row2 { grid-template-columns: 1fr; } .form button { width: 100%; } }
 @media (max-width: 640px) { .card { padding: 18px 16px; } }
 .fld > .lb { display: block; font: 500 17px/1.4 "Kanit", sans-serif; margin-bottom: 10px; }
 .fld input[type=file] { font: 14px "Sarabun", sans-serif; color: var(--muted); max-width: 100%; }
@@ -100,7 +101,7 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
     <span class="logo-badge"><img src="assets/hal-logo.png" alt="Heung A Line"></span>
     <h1>Change Status — MMAN × STATUS → MMAN_EDI.txt</h1>
   </div>
-  <div class="credit">Project by <b>Ms. Rattana Mudlae</b><br>Position Import DOC.<br><span style="opacity:.75;font-size:12px">เวอร์ชัน 21/10/2026 · ชื่อตาม col 1672</span></div>
+  <div class="credit">Project by <b>Ms. Rattana Mudlae</b><br>Position Import DOC.<br><span style="opacity:.75;font-size:12px">เวอร์ชัน 22/10/2026 · ชื่อตาม col 1672</span></div>
 </header>
 <main>
   <div class="card">
@@ -116,14 +117,6 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
         <span class="fn" id="fnList"></span>
       </div>
       <div class="fld">
-        <label class="lb" for="startBl">เริ่มต้นเก็บ B/L</label>
-        <input type="text" id="startBl" maxlength="35" placeholder="ว่าง = ตั้งแต่ B/L แรก" autocomplete="off" spellcheck="false">
-      </div>
-      <div class="fld">
-        <label class="lb" for="endBl">ถึง B/L</label>
-        <input type="text" id="endBl" maxlength="35" placeholder="ว่าง = ถึงบรรทัดสุดท้าย" autocomplete="off" spellcheck="false">
-      </div>
-      <div class="fld">
         <span class="lb">SHED NO. (มี Status / อื่น)</span>
         <div class="shed">
           <input id="shedYes" value="0145" maxlength="4" placeholder="0145" aria-label="Shed B/L ที่มี Status">
@@ -131,8 +124,18 @@ button.ghost:hover:not(:disabled) { background: #eef3f9; }
         </div>
       </div>
       <div class="btns">
-        <button id="run" disabled>Change status</button>
+        <button id="run" disabled>Change</button>
         <button type="button" id="clearAll" class="ghost">ลบไฟล์</button>
+      </div>
+    </div>
+    <div class="form row2">
+      <div class="fld">
+        <label class="lb" for="startBl">เริ่มต้นเก็บ B/L</label>
+        <input type="text" id="startBl" maxlength="35" placeholder="ว่าง = ตั้งแต่ B/L แรก" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="fld">
+        <label class="lb" for="endBl">ถึง B/L</label>
+        <input type="text" id="endBl" maxlength="35" placeholder="ว่าง = ถึงบรรทัดสุดท้าย" autocomplete="off" spellcheck="false">
       </div>
     </div>
     <p class="note">เริ่มต้นเก็บ B/L … ถึง B/L: เก็บบรรทัด PSKV ไว้ แล้วเก็บเฉพาะตั้งแต่ B/L เริ่มต้นจนถึง B/L สุดท้ายที่กำหนด (รวม sub-B/L …A, …B และบรรทัดตู้ของ B/L นั้น) ที่เหลือตัดออก · เว้นว่างทั้งสองช่อง = ไม่ตัด ใช้ทั้งไฟล์ · SHED NO.: B/L ที่มี Status ใช้ช่องซ้าย (0145) ที่เหลือใช้ช่องขวา (0122) · ลบช่องขวาให้ว่าง = ใช้ SHED NO. ช่องซ้ายกับทุก B/L (เช่นงาน LCH) · ประมวลผลในเบราว์เซอร์ ไม่มีการอัปโหลดไฟล์ · <a href="guide.html" style="color:inherit;font-weight:600">คู่มือการใช้งาน</a></p>
